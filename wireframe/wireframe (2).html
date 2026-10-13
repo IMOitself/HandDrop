@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wireframe</title>
+<style>
+  * { box-sizing: border-box; margin: 0; }
+  html, body { height: 100%; }
+  body { position: relative; display: flex; flex-direction: column; border: 1px solid #888; overflow: hidden; font: 12px sans-serif; color: #666; }
+  /* wide screens */
+  @media (min-aspect-ratio: 3/4) { html { padding: 0 calc(100vw / 6) } }
+
+  /* gray = content, orange = padding */
+  div { display: flex; align-items: center; justify-content: center; border: 1px dashed #999;
+        background: linear-gradient(#eee, #eee) content-box, #f9d9c4; }
+  .b  { background: linear-gradient(#ddd, #ddd) content-box, #f9d9c4; flex: 1; }
+  .c  { align-items: stretch; padding: .5em; gap: .5em; }
+  .col { flex-direction: column; }
+
+  .toolbar { height: 8%; }
+  .toolbar .b { flex: none; aspect-ratio: 1; }
+  .toolbar .title { flex: 1; aspect-ratio: auto; }
+  .tabs    { height: 6%; padding: 0; }
+
+  .main   { flex: 1; min-height: 0; }
+  .drawer { width: 32%; overflow: hidden; justify-content: flex-start; }
+  .drawer > .b { flex: none; height: 8%; }
+  .mini   { height: 8%; flex: none; }
+  .editor { flex: 1; }
+  .phone  { height: 100%; aspect-ratio: 9 / 16; flex: none; }
+
+  .sheet  { position: absolute; left: 0; right: 0; bottom: 0; height: 30%; z-index: 2; }
+  .head   { height: 22%; flex: none; }
+  .head .icon { flex: none; aspect-ratio: 1; }
+  .stabs  { height: 20%; flex: none; justify-content: flex-start; }
+  .stabs .b { flex: none; width: 22%; }
+  .row    { flex: 1; min-height: 0; overflow-x: auto; scrollbar-width: none; justify-content: flex-start; }
+  .row .b { flex: none; height: 100%; aspect-ratio: 1; }
+  .row .all { position: sticky; right: .5em; z-index: 3; }
+</style>
+</head>
+<body>
+
+<div class="toolbar c">
+  <div class="b">Back</div>
+  <div class="b title">Title</div>
+  <div class="b">Undo</div>
+  <div class="b">Redo</div>
+  <div class="b">Save</div>
+  <div class="b">Menu</div>
+</div>
+
+<div class="tabs c">
+  <div class="b">Tab</div>
+  <div class="b">Tab</div>
+  <div class="b">Tab</div>
+</div>
+
+<div class="main c">
+  <div class="drawer c col">
+    <div class="mini c"><div class="b">Tab</div><div class="b">Tab</div></div>
+    <div class="b">Item</div>
+    <div class="b">Item</div>
+    <div class="b">Item</div>
+    <div class="b">Item</div>
+    <div class="b">Item</div>
+    <div class="b">Item</div>
+    <div class="b">Item</div>
+  </div>
+  <div class="editor c">
+    <div class="phone">Phone layout</div>
+  </div>
+</div>
+
+<div class="sheet c col">
+  <div class="head c">
+    <div class="b icon">Icon</div>
+    <div class="b">Header</div>
+    <div class="b icon">Save</div>
+  </div>
+  <div class="stabs c">
+    <div class="b">Tab</div>
+    <div class="b">Tab</div>
+    <div class="b">Tab</div>
+  </div>
+  <div class="row c">
+    <div class="b">Item</div>
+    <div class="b">Item</div>
+    <div class="b">Item</div>
+    <div class="b">Item</div>
+    <div class="b">Item</div>
+    <div class="b">Item</div>
+    <div class="b all">See all</div>
+  </div>
+</div>
+
+</body>
+</html>
