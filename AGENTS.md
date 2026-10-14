@@ -34,6 +34,8 @@
 - when you see a bad pattern, correct it only if we're focusing on it otherwise leave it lock
 - leave code locked if its not part of our focus only after we finish then we proceed to edit
 - do not manually create or edit if we can just use terminal command like `vite create@latest`
+- only seperate files if the code hits 300 lines or if really necessary otherwise dont
+- only seperate it if it needs to be called repetetively
 
 ## ui design
 - update this list if i mention ui design styles on chat or during editing
