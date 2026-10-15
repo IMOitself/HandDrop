@@ -113,17 +113,17 @@ function App() {
         </nav>}
       </div>
 
-      <main className="flex-1 min-h-0 flex lg:px-3 lg:gap-3">
+      <main className="flex-1 min-h-0 flex lg:px-16 lg:gap-8">
         <aside className="w-1/3 h-full flex-none flex flex-col gap-2 p-2 overflow-hidden border border-blue-200 lg:rounded-sm">
-          <div className="h-7 flex-none flex gap-2">
+          <div className="flex-none flex gap-2">
             {[
-              { label: 'elements', icon: 'add_box' },
-              { label: 'templates', icon: 'widgets' }
+              { label: ' Elements', icon: 'add_box' },
+              { label: ' Templates', icon: 'widgets' }
             ].map((tab, i) =>
               <button
                 key={tab.label}
                 onClick={() => setDrawerTab(i)}
-                className={`flex-1 flex items-center justify-center cursor-pointer rounded-sm transition-colors gap-2 ${drawerTab === i ? 'bg-blue-500 text-white' : 'bg-blue-50 text-blue-600 hover:bg-blue-100'}`}
+                className={`flex-1 flex items-center justify-center cursor-pointer rounded-sm transition-colors gap-2 p-2 ${drawerTab === i ? 'bg-blue-500 text-white' : 'bg-blue-50 text-blue-600 hover:bg-blue-100'}`}
               >
                 <span className="sm:hidden material-symbols-outlined text-lg">{tab.icon}</span>
                 <span className="hidden sm:inline">{tab.label}</span>
@@ -365,7 +365,7 @@ function App() {
       {showSheet && (
         <section
           onClick={(e) => e.stopPropagation()}
-          className="h-[32%] flex-none flex flex-col overflow-hidden bg-white border border-blue-200 rounded-t-sm absolute bottom-0 w-full z-10"
+          className="flex-none flex flex-col overflow-hidden bg-white border border-blue-200 rounded-t-sm absolute bottom-0 w-full z-10"
         >
           <header className="h-9 flex-none flex items-center gap-2 px-2 bg-blue-500 text-white">
             <span className="material-symbols-outlined text-lg">{selectedItem?.icon ?? 'select'}</span>
@@ -395,7 +395,7 @@ function App() {
             )}
           </nav>
 
-          <div className="flex-1 min-h-0 flex gap-2 p-2 overflow-x-auto bg-blue-50 scrollbar-none">
+          <div className="flex-1 min-h-0 flex gap-1 p-1 overflow-x-auto bg-blue-50 scrollbar-none">
             {{
               attributes: [
                 { category: 'layout', label: 'display', icon: 'view_quilt' },
@@ -447,9 +447,9 @@ function App() {
                 <button
                   key={sheetItem.label}
                   onClick={sheetItem.action}
-                  className="aspect-square h-full flex-none flex flex-col gap-1 p-1 items-center justify-center text-center leading-tight bg-white border border-blue-200 rounded-sm hover:bg-blue-100 cursor-pointer transition-colors"
+                  className="size-24 flex-none flex flex-col p-1 items-center justify-center text-center leading-tight bg-white border border-blue-200 rounded-sm hover:bg-blue-100 cursor-pointer transition-colors"
                 >
-                  <span className="material-symbols-outlined text-2xl text-blue-500">{sheetItem.icon}</span>
+                  <span className="material-symbols-outlined text-lg text-blue-500">{sheetItem.icon}</span>
                   {sheetItem.label}
                   {selectedItem?.attributes?.[sheetItem.label] && <span className="max-w-full truncate text-blue-400">{selectedItem.attributes[sheetItem.label]}</span>}
                 </button>
