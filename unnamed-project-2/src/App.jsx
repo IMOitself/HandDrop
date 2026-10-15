@@ -1,6 +1,11 @@
 ﻿import { useState } from 'react'
 
-const iconBtn = "aspect-square flex-none flex items-center justify-center text-white rounded-sm hover:bg-blue-700 transition-colors cursor-pointer"
+const units = ['rem', 'px', 'em', '%', 'vh', 'vw', 'vmin', 'vmax', 'ch']
+const globalValues = ['inherit', 'initial', 'revert', 'revert-layer', 'unset']
+const emptySide = { amount: '', unit: 'rem' }
+const emptySides = { top: emptySide, right: emptySide, bottom: emptySide, left: emptySide }
+const emptyDrafts ={ number: { amount: '', unit: 'rem' }, percentage: { amount: '', unit: '%' } }
+const iconBtn ="aspect-square flex-none flex items-center justify-center text-white rounded-sm hover:bg-blue-700 transition-colors cursor-pointer"
 
 function App() {
   const [activeTab, setActiveTab] = useState('VIEW')
@@ -19,7 +24,11 @@ function App() {
   const [hoverZone, setHoverZone] = useState(null)
   const [dialogAttr, setDialogAttr] = useState(null)
   const [dialogValue, setDialogValue] = useState('')
-  const [isAllSides, setIsAllSides] = useState(false)
+  const [isAllSides, setIsAllSides] = useState(true)
+  const [numberDrafts, setNumberDrafts] = useState(emptyDrafts)
+  const [isAdvanced, setIsAdvanced] = useState(false)
+  const [customDraft, setCustomDraft] = useState('')
+  const [sidesDraft, setSidesDraft] = useState(emptySides)
 
   const resetDrag = () => {
     setDraggedItem(null)
@@ -47,22 +56,56 @@ function App() {
   const selectedTag = selectedItem?.label.split(' ')[0]
   const nextId = (label) => label.split(' ')[0] + (allItems.filter(d => d.label === label).length + 1)
 
-  const isCustomValue = !dialogAttr?.options?.includes(dialogValue)
+  const isNumberText = text => /^-?[\d.]+[a-z%]*$/.test(text)
+  const toAmount = text => {
+    const [, amount, unit] = text.match(/^(-?[\d.]*)(.*)$/)
+    return { amount, unit: unit || 'rem' }
+  }
+
+  const isSidesText = text => text.split(' ').every(isNumberText)
+  const toSidesText = draft => {
+    const sides = ['top', 'right', 'bottom', 'left'].map(side => draft[side])
+    if (sides.every(side => !side.amount)) return ''
+    const sideTexts = sides.map(side => `${side.amount || 0}${side.unit}`)
+    return new Set(sideTexts).size === 1 ? sideTexts[0] : sideTexts.join(' ')
+  }
+
+  const savedValue = selectedItem?.attributes?.[dialogAttr?.label] ?? ''
+  const isTextOnly = dialogAttr && !dialogAttr.sides && !dialogAttr.options && !dialogAttr.number
+  const isCommonValue = (attr, value) => attr.options?.includes(value) || (attr.number && isNumberText(value)) || (attr.sides && isSidesText(value))
+  const isUncoveredValue = savedValue && !dialogAttr?.more?.includes(savedValue) && !globalValues.includes(savedValue) && !isCommonValue(dialogAttr, savedValue)
+  const keywordValues = [...(dialogAttr?.options ?? []), ...(isAdvanced ? dialogAttr?.more ?? [] : []), ...(isUncoveredValue ? [savedValue] : [])]
+  const sidesText = toSidesText(sidesDraft)
+
+  const setNumber = (category, change) => {
+    const nextNumber = { ...numberDrafts[category], ...change }
+    setNumberDrafts({ ...numberDrafts, [category]: nextNumber })
+    setDialogValue(nextNumber.amount ? nextNumber.amount + nextNumber.unit : '')
+  }
 
   const openDialog = (attr) => {
     const value = selectedItem?.attributes?.[attr.label] ?? ''
+    const numberCategory = value.endsWith('%') ? 'percentage' : 'number'
     setDialogAttr(attr)
-    if (!attr.sides) return setDialogValue(value)
-    const [top = '0', right = top, bottom = top, left = right] = value.replace(/rem/g, '').split(' ').filter(Boolean)
-    setDialogValue({ top, right, bottom, left })
+    setDialogValue(value)
+    setCustomDraft('')
+    setNumberDrafts(isNumberText(value) ? { ...emptyDrafts, [numberCategory]: toAmount(value) } : emptyDrafts)
+    setIsAdvanced(Boolean(value) && !isCommonValue(attr, value))
+    const sideParts = attr.sides && isSidesText(value) ? value.split(' ').filter(Boolean) : []
+    const [top = '', right = top, bottom = top, left = right] = sideParts
+    setSidesDraft({ top: toAmount(top), right: toAmount(right), bottom: toAmount(bottom), left: toAmount(left) })
+    setIsAllSides(top === right && top === bottom && top === left)
+  }
+
+  const setSide = (side, change) => {
+    const nextSide = { ...sidesDraft[isAllSides ? 'top' : side], ...change }
+    const nextDraft = isAllSides ? { top: nextSide, right: nextSide, bottom: nextSide, left: nextSide } : { ...sidesDraft, [side]: nextSide }
+    setSidesDraft(nextDraft)
+    setDialogValue(toSidesText(nextDraft))
   }
 
   const saveDialog = () => {
-    const { top, right, bottom, left } = dialogValue
-    const isSameSides = top === right && top === bottom && top === left
-    const sidesValue = isSameSides ? `${top}rem` : `${top}rem ${right}rem ${bottom}rem ${left}rem`
-    const value = dialogAttr.sides ? sidesValue : dialogValue
-    const update = item => item.id === selectedId ? { ...item, attributes: { ...item.attributes, [dialogAttr.label]: value } } : item
+    const update = item => item.id === selectedId ? { ...item, attributes: { ...item.attributes, [dialogAttr.label]: dialogValue } } : item
     setDroppedItems(droppedItems.map(d => ({ ...update(d), children: d.children.map(update) })))
     setDialogAttr(null)
   }
@@ -421,20 +464,20 @@ function App() {
           <div className="flex-1 min-h-0 flex gap-1 p-1 overflow-x-auto bg-blue-50 scrollbar-none">
             {{
               attributes: [
-                { category: 'layout', label: 'display', icon: 'view_quilt', options: ['block', 'flex', 'inline', 'inline-block', 'none'] },
-                { category: 'layout', label: 'width', icon: 'width', options: ['auto', '100%', 'fit-content'] },
-                { category: 'layout', label: 'height', icon: 'height', options: ['auto', '100%', 'fit-content'] },
+                { category: 'layout', label: 'display', icon: 'view_quilt', options: ['block', 'flex', 'none'], more: ['inline', 'inline-block', 'inline-flex', 'grid', 'contents'] },
+                { category: 'layout', label: 'width', icon: 'width', options: ['auto', 'fit-content'], more: ['max-content', 'min-content', 'stretch'], number: true },
+                { category: 'layout', label: 'height', icon: 'height', options: ['auto', 'fit-content'], more: ['max-content', 'min-content', 'stretch'], number: true },
                 { category: 'layout', label: 'margin', icon: 'arrows_output', sides: true },
                 { category: 'layout', label: 'padding', icon: 'arrows_input', sides: true },
-                { category: 'layout', label: 'position', icon: 'open_with', options: ['static', 'relative', 'absolute', 'fixed', 'sticky'] },
+                { category: 'layout', label: 'position', icon: 'open_with', options: ['static', 'relative', 'absolute'], more: ['fixed', 'sticky'] },
                 { category: 'layout', label: 'z-index', icon: 'layers' },
-                { category: 'element', label: 'flex-direction', icon: 'swap_horiz', only: ['div'], options: ['row', 'column', 'row-reverse', 'column-reverse'] },
-                { category: 'element', label: 'justify-content', icon: 'align_horizontal_center', only: ['div'], options: ['flex-start', 'center', 'flex-end', 'space-between', 'space-around'] },
-                { category: 'element', label: 'align-items', icon: 'align_vertical_center', only: ['div'], options: ['stretch', 'flex-start', 'center', 'flex-end'] },
-                { category: 'element', label: 'gap', icon: 'space_bar', only: ['div'] },
+                { category: 'element', label: 'flex-direction', icon: 'swap_horiz', only: ['div'], options: ['row', 'column'], more: ['row-reverse', 'column-reverse'] },
+                { category: 'element', label: 'justify-content', icon: 'align_horizontal_center', only: ['div'], options: ['flex-start', 'center', 'flex-end', 'space-between'], more: ['space-around', 'space-evenly'] },
+                { category: 'element', label: 'align-items', icon: 'align_vertical_center', only: ['div'], options: ['stretch', 'flex-start', 'center', 'flex-end'], more: ['baseline'] },
+                { category: 'element', label: 'gap', icon: 'space_bar', only: ['div'], number: true },
                 { category: 'element', label: 'src', icon: 'image', only: ['image'] },
                 { category: 'element', label: 'alt', icon: 'short_text', only: ['image'] },
-                { category: 'element', label: 'object-fit', icon: 'fit_screen', only: ['image'], options: ['cover', 'contain', 'fill', 'none'] },
+                { category: 'element', label: 'object-fit', icon: 'fit_screen', only: ['image'], options: ['cover', 'contain'], more: ['fill', 'none', 'scale-down'] },
                 { category: 'element', label: 'type', icon: 'category', only: ['input'], options: ['text', 'number', 'email', 'password'] },
                 { category: 'element', label: 'type', icon: 'category', only: ['button'], options: ['button', 'submit', 'reset'] },
                 { category: 'element', label: 'placeholder', icon: 'edit_note', only: ['input'] },
@@ -442,13 +485,13 @@ function App() {
                 { category: 'element', label: 'name', icon: 'badge', only: ['input'] },
                 { category: 'element', label: 'disabled', icon: 'block', only: ['input', 'button'], options: ['true', 'false'] },
                 { category: 'typography', label: 'color', icon: 'format_color_text', only: ['text', 'button', 'input'] },
-                { category: 'typography', label: 'font-size', icon: 'format_size', only: ['text', 'button', 'input'] },
-                { category: 'typography', label: 'font-weight', icon: 'format_bold', only: ['text', 'button', 'input'], options: ['normal', 'bold', 'lighter', 'bolder'] },
-                { category: 'typography', label: 'text-align', icon: 'format_align_center', only: ['text', 'button', 'input'], options: ['left', 'center', 'right', 'justify'] },
-                { category: 'typography', label: 'line-height', icon: 'format_line_spacing', only: ['text', 'button', 'input'] },
+                { category: 'typography', label: 'font-size', icon: 'format_size', only: ['text', 'button', 'input'], more: ['small', 'medium', 'large', 'x-large', 'smaller', 'larger'], number: true },
+                { category: 'typography', label: 'font-weight', icon: 'format_bold', only: ['text', 'button', 'input'], options: ['normal', 'bold'], more: ['lighter', 'bolder', '300', '500', '600'] },
+                { category: 'typography', label: 'text-align', icon: 'format_align_center', only: ['text', 'button', 'input'], options: ['left', 'center', 'right'], more: ['justify', 'start', 'end'] },
+                { category: 'typography', label: 'line-height', icon: 'format_line_spacing', only: ['text', 'button', 'input'], options: ['normal'], number: true },
                 { category: 'visual', label: 'border', icon: 'border_style' },
                 { category: 'visual', label: 'background', icon: 'background_replace' },
-                { category: 'visual', label: 'cursor', icon: 'arrow_selector_tool', options: ['auto', 'pointer', 'default', 'text', 'not-allowed'] },
+                { category: 'visual', label: 'cursor', icon: 'arrow_selector_tool', options: ['pointer', 'default'], more: ['auto', 'text', 'not-allowed', 'grab', 'move'] },
                 { category: 'identity', label: 'id', icon: 'tag' },
                 { category: 'identity', label: 'class', icon: 'label' }
               ],
@@ -485,54 +528,115 @@ function App() {
 
       {dialogAttr && (
         <div onClick={() => setDialogAttr(null)} className="absolute inset-0 z-20 flex items-center justify-center bg-blue-900/40">
-          <div onClick={(e) => e.stopPropagation()} className="w-[80%] max-w-sm flex flex-col overflow-hidden bg-white rounded-sm">
+          <div onClick={(e) => e.stopPropagation()} className="w-[80%] max-w-sm max-h-[90%] flex flex-col overflow-hidden bg-white rounded-sm">
             <h2 className="flex items-center gap-2 p-3 text-sm font-bold text-blue-500">
               <span className="material-symbols-outlined text-lg">{dialogAttr.icon}</span>
               {dialogAttr.label}
             </h2>
 
-            <div className="flex flex-col gap-2 px-3 pb-3">
-              {dialogAttr.sides && (
+            <div className="min-h-0 flex flex-col gap-2 px-3 pb-3 overflow-y-auto">
+              {!isTextOnly && (
                 <>
-                  <div className="grid grid-cols-2 gap-2">
-                    {['left', 'right', 'top', 'bottom'].map(side =>
-                      <label key={side} className="flex flex-col gap-1">
-                        {side}
-                        <div className="flex items-center gap-1 p-2 border border-blue-200 rounded-sm focus-within:border-blue-500">
-                          <input
-                            value={dialogValue[side]}
-                            onChange={(e) => {
-                              const value = e.target.value
-                              if (isAllSides) return setDialogValue({ top: value, right: value, bottom: value, left: value })
-                              setDialogValue({ ...dialogValue, [side]: value })
-                            }}
-                            className="w-full outline-none"
-                          />
-                          rem
+                  {dialogAttr.sides && (
+                    <details open>
+                      <summary className="cursor-pointer text-blue-400">sides</summary>
+                      <label className="flex items-center gap-2 p-1 cursor-pointer">
+                        <input type="radio" checked={Boolean(sidesText) && dialogValue === sidesText} onChange={() => setDialogValue(sidesText)} className="accent-blue-500" />
+                        <div className={`flex-1 grid gap-2 ${isAllSides ? 'grid-cols-1' : 'grid-cols-2'}`}>
+                          {(isAllSides ? ['all sides'] : ['left', 'right', 'top', 'bottom']).map(side => {
+                            const sideValue = sidesDraft[isAllSides ? 'top' : side]
+                            return (
+                              <div key={side} className="flex flex-col gap-1">
+                                {side}
+                                <div className="flex items-center gap-1 p-2 border border-blue-200 rounded-sm focus-within:border-blue-500">
+                                  <input value={sideValue.amount} onChange={(e) => setSide(side, { amount: e.target.value })} placeholder="0" className="w-full min-w-0 outline-none" />
+                                  <select value={sideValue.unit} onChange={(e) => setSide(side, { unit: e.target.value })} className="outline-none cursor-pointer">
+                                    {units.map(unit => <option key={unit}>{unit}</option>)}
+                                  </select>
+                                </div>
+                              </div>
+                            )
+                          })}
                         </div>
                       </label>
-                    )}
-                  </div>
+                      <label className="flex items-center gap-2 p-1 cursor-pointer">
+                        <input type="checkbox" checked={isAllSides} onChange={(e) => setIsAllSides(e.target.checked)} className="accent-blue-500" />
+                        {dialogAttr.label} on all sides
+                      </label>
+                    </details>
+                  )}
+
+                  {dialogAttr.number && ['number', 'percentage'].map(category => {
+                    const draft = numberDrafts[category]
+                    const draftText = draft.amount + draft.unit
+                    return (
+                      <details key={category} open>
+                        <summary className="cursor-pointer text-blue-400">{category}</summary>
+                        <label className="flex items-center gap-2 p-1 cursor-pointer">
+                          <input type="radio" checked={Boolean(draft.amount) && dialogValue === draftText} onChange={() => setDialogValue(draft.amount ? draftText : '')} className="accent-blue-500" />
+                          <div className="flex-1 flex items-center gap-1 p-2 border border-blue-200 rounded-sm focus-within:border-blue-500">
+                            <input value={draft.amount} onChange={(e) => setNumber(category, { amount: e.target.value })} placeholder="0" className="w-full min-w-0 outline-none" />
+                            {category === 'percentage' ? '%' : (
+                              <select value={draft.unit} onChange={(e) => setNumber(category, { unit: e.target.value })} className="outline-none cursor-pointer">
+                                {units.filter(unit => unit !== '%').map(unit => <option key={unit}>{unit}</option>)}
+                              </select>
+                            )}
+                          </div>
+                        </label>
+                      </details>
+                    )
+                  })}
+
+                  {isAdvanced && (
+                    <details open={globalValues.includes(savedValue)}>
+                      <summary className="cursor-pointer text-blue-400">global</summary>
+                      {globalValues.map(option =>
+                        <label key={option} className="flex items-center gap-2 p-1 cursor-pointer">
+                          <input type="radio" checked={dialogValue === option} onChange={() => setDialogValue(option)} className="accent-blue-500" />
+                          {option}
+                        </label>
+                      )}
+                    </details>
+                  )}
+
+                  {keywordValues.length > 0 && (
+                    <details open>
+                      <summary className="cursor-pointer text-blue-400">keyword</summary>
+                      {keywordValues.map(option =>
+                        <label key={option} className="flex items-center gap-2 p-1 cursor-pointer">
+                          <input type="radio" checked={dialogValue === option} onChange={() => setDialogValue(option)} className="accent-blue-500" />
+                          {option}
+                        </label>
+                      )}
+                    </details>
+                  )}
+
+                  {isAdvanced && (
+                    <details open>
+                      <summary className="cursor-pointer text-blue-400">custom</summary>
+                      <label className="flex items-center gap-2 p-1 cursor-pointer">
+                        <input type="radio" checked={Boolean(customDraft) && dialogValue === customDraft} onChange={() => setDialogValue(customDraft)} className="accent-blue-500" />
+                        <input
+                          value={customDraft}
+                          onChange={(e) => {
+                            setCustomDraft(e.target.value)
+                            setDialogValue(e.target.value)
+                          }}
+                          placeholder="enter custom value"
+                          className="flex-1 min-w-0 p-2 border border-blue-200 rounded-sm outline-none focus:border-blue-500"
+                        />
+                      </label>
+                    </details>
+                  )}
+
                   <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" checked={isAllSides} onChange={(e) => setIsAllSides(e.target.checked)} className="accent-blue-500" />
-                    {dialogAttr.label} on all sides
+                    <input type="checkbox" checked={isAdvanced} onChange={(e) => setIsAdvanced(e.target.checked)} className="accent-blue-500" />
+                    advance
                   </label>
                 </>
               )}
 
-              {dialogAttr.options && [...dialogAttr.options, 'custom value'].map(option =>
-                <label key={option} className="flex items-center gap-2 p-1 cursor-pointer">
-                  <input
-                    type="radio"
-                    checked={option === 'custom value' ? isCustomValue : dialogValue === option}
-                    onChange={() => setDialogValue(option === 'custom value' ? '' : option)}
-                    className="accent-blue-500"
-                  />
-                  {option}
-                </label>
-              )}
-
-              {!dialogAttr.sides && isCustomValue && (
+              {isTextOnly && (
                 <input
                   autoFocus
                   value={dialogValue}
