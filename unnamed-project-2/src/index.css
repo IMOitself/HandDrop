@@ -2,4 +2,4 @@
 
 html, body, #root { height: 100%; margin: 0 }
 header .material-symbols-outlined { font-variation-settings: 'FILL' 1 }
-@media (min-width: 1024px) { #root { padding: 0 16% } }
+/* @media (min-width: 1024px) { #root { padding: 0 16% } } */

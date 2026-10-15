@@ -54,15 +54,15 @@ function App() {
   }
 
   return (
-    <div className="h-full flex flex-col gap-2 overflow-hidden font-sans text-xs text-blue-900 relative">
+    <div className="h-full flex flex-col lg:gap-2 overflow-hidden font-sans text-xs text-blue-900 relative">
 
-      <div className='flex flex-col lg:rounded-sm lg:mt-2 lg:overflow-hidden'>
+      <div className='flex flex-col lg:overflow-hidden'>
         <header className="flex gap-2 p-2 bg-blue-500">
           <button className={iconBtn}>
             <span className="material-symbols-outlined text-lg">arrow_back</span>
           </button>
-          <div className="flex-1 flex items-center justify-center text-white truncate">project name</div>
-          {['undo', 'redo', 'save', 'menu'].map(icon =>
+          <div className="flex-1 flex items-center justify-center text-white truncate text-lg font-semibold">project name</div>
+          {['undo', 'redo', 'menu'].map(icon =>
             <button key={icon} className={iconBtn}>
               <span className="material-symbols-outlined text-lg">{icon}</span>
             </button>
@@ -82,8 +82,8 @@ function App() {
         </nav>
       </div>
 
-      <main className="flex-1 min-h-0 flex px-2 lg:px-0 lg:gap-2">
-        <aside className="w-1/3 h-full flex-none flex flex-col gap-2 p-2 overflow-hidden border border-blue-200 rounded-sm">
+      <main className="flex-1 min-h-0 flex lg:px-3 lg:gap-3">
+        <aside className="w-1/3 h-full flex-none flex flex-col gap-2 p-2 overflow-hidden border border-blue-200 lg:rounded-sm">
           <div className="h-7 flex-none flex gap-2">
             {[
               { label: 'elements', icon: 'add_box' },
@@ -115,7 +115,7 @@ function App() {
                 setDragIndex(null)
               }}
               onDragEnd={() => resetDrag()}
-              className="flex items-center p-2 gap-2 justify-center border border-blue-100 rounded-sm bg-white hover:bg-blue-50 cursor-grab active:cursor-grabbing transition-colors"
+              className="flex items-center p-2 gap-2 lg:justify-center border border-blue-100 rounded-sm bg-white hover:bg-blue-50 cursor-grab active:cursor-grabbing transition-colors"
             >
               <span className="material-symbols-outlined text-lg">{el.icon}</span>
               {el.label}
@@ -128,7 +128,7 @@ function App() {
             setSelectedId(null)
             setShowSheet(false)
           }}
-          className="flex-1 h-full min-w-0 flex items-start justify-center p-2 overflow-hidden border border-blue-200 rounded-sm bg-blue-50"
+          className="flex-1 h-full min-w-0 flex items-start justify-center p-2 overflow-hidden border border-blue-200 lg:rounded-sm bg-blue-50"
           style={{ containerType: 'size' }}
         >
           <div
