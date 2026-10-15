@@ -7,6 +7,11 @@ function App() {
   const [drawerTab, setDrawerTab] = useState(0)
   const [sheetTab, setSheetTab] = useState('basic')
   const [showSheet, setShowSheet] = useState(true)
+  const [droppedItems, setDroppedItems] = useState([])
+  const [draggedItem, setDraggedItem] = useState(null)
+  const [dragIndex, setDragIndex] = useState(null)
+  const [dropIndex, setDropIndex] = useState(null)
+  const [isOverPhone, setIsOverPhone] = useState(false)
 
   return (
     <div className="h-full flex flex-col p-2 gap-2 overflow-hidden font-sans text-xs text-blue-900 bg-white border border-blue-200 relative">
@@ -54,19 +59,120 @@ function App() {
               </button>
             )}
           </div>
-          {Array.from({ length: 12 }, (_, i) =>
-            <div key={i} className="flex items-center p-2 justify-center border border-blue-100 rounded-sm bg-white hover:bg-blue-50 cursor-pointer transition-colors">
-              item {i + 1}
+          {[{ label: 'div', icon: 'square' }, { label: 'button', icon: 'smart_button' }, { label: 'text', icon: 'text_fields' }, { label: 'image', icon: 'image' }, { label: 'input', icon: 'edit_note' }].map((el, i) =>
+            <div
+              key={i}
+              draggable
+              onDragStart={() => {
+                setDraggedItem(el)
+                setDragIndex(null)
+              }}
+              onDragEnd={() => {
+                setDraggedItem(null)
+                setDragIndex(null)
+                setDropIndex(null)
+                setIsOverPhone(false)
+              }}
+              className="flex items-center p-2 gap-2 justify-center border border-blue-100 rounded-sm bg-white hover:bg-blue-50 cursor-grab active:cursor-grabbing transition-colors"
+            >
+              <span className="material-symbols-outlined text-lg">{el.icon}</span>
+              {el.label}
             </div>
           )}
         </aside>
 
         <div className="flex-1 h-full min-w-0 flex items-center justify-center p-2 overflow-hidden border border-blue-200 rounded-sm bg-blue-50" style={{ containerType: 'size' }}>
           <div
-            className="aspect-9/16 flex items-center justify-center bg-white border border-blue-200 rounded-sm text-blue-400"
+            onDragOver={(e) => {
+              e.preventDefault()
+              setIsOverPhone(true)
+              const isDirectTarget = e.target === e.currentTarget
+              if (isDirectTarget) setDropIndex(droppedItems.length)
+            }}
+            onDragLeave={(e) => {
+              const leavingTarget = !e.currentTarget.contains(e.relatedTarget)
+              if (leavingTarget) {
+                setIsOverPhone(false)
+                setDropIndex(null)
+              }
+            }}
+            onDrop={(e) => {
+              e.preventDefault()
+              const hasItem = draggedItem !== null
+              if (hasItem) {
+                const nextItems = [...droppedItems]
+                const isReorder = dragIndex !== null
+                if (isReorder) nextItems.splice(dragIndex, 1)
+                const targetPosition = dropIndex !== null ? dropIndex : nextItems.length
+                nextItems.splice(targetPosition, 0, draggedItem)
+                setDroppedItems(nextItems)
+              }
+              setDraggedItem(null)
+              setDragIndex(null)
+              setDropIndex(null)
+              setIsOverPhone(false)
+            }}
+            className="aspect-9/16 flex flex-col p-2 gap-2 bg-white border border-blue-200 rounded-sm text-blue-400 overflow-y-auto"
             style={{ width: 'min(calc(100cqw - 1rem), calc((100cqh - 1rem) * 9 / 16))' }}
           >
-            phone layout
+            {droppedItems.length === 0 && !isOverPhone && (
+              <div className="m-auto">phone layout</div>
+            )}
+            {droppedItems.map((item, i) =>
+              <div key={i} className="flex flex-col gap-2">
+                {isOverPhone && dropIndex === i && dragIndex !== i && (
+                  <div
+                    onDragOver={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                    }}
+                    className="flex items-center p-2 gap-2 justify-center border-2 border-dashed border-blue-300 bg-blue-50/60 rounded-sm shadow-inner text-blue-400"
+                  >
+                    <span className="material-symbols-outlined text-lg">{draggedItem?.icon}</span>
+                    {draggedItem?.label}
+                  </div>
+                )}
+                <div
+                  draggable
+                  onClick={() => setShowSheet(true)}
+                  onDragStart={() => {
+                    setDraggedItem(item)
+                    setDragIndex(i)
+                  }}
+                  onDragEnd={() => {
+                    setDraggedItem(null)
+                    setDragIndex(null)
+                    setDropIndex(null)
+                    setIsOverPhone(false)
+                  }}
+                  onDragOver={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    setIsOverPhone(true)
+                    setDropIndex(i)
+                  }}
+                  className={`cursor-grab active:cursor-grabbing ${dragIndex === i ? 'opacity-40' : ''}`}
+                >
+                  {item.label === 'button' && <button className="w-full p-2 bg-blue-500 text-white rounded-sm pointer-events-none">button</button>}
+                  {item.label === 'div' && <div className="p-2 border border-dashed border-blue-300 rounded-sm min-h-10 text-blue-400" />}
+                  {item.label === 'text' && <p className="p-1 text-blue-900">text</p>}
+                  {item.label === 'image' && <div className="h-20 bg-blue-100 rounded-sm flex items-center justify-center text-blue-400"><span className="material-symbols-outlined text-2xl">image</span></div>}
+                  {item.label === 'input' && <input readOnly placeholder="input" className="w-full p-2 border border-blue-200 rounded-sm bg-white pointer-events-none" />}
+                </div>
+              </div>
+            )}
+            {isOverPhone && draggedItem && (dropIndex === null || dropIndex >= droppedItems.length) && (
+              <div
+                onDragOver={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                }}
+                className="flex items-center p-2 gap-2 justify-center border-2 border-dashed border-blue-300 bg-blue-50/60 rounded-sm shadow-inner text-blue-400"
+              >
+                <span className="material-symbols-outlined text-lg">{draggedItem.icon}</span>
+                {draggedItem.label}
+              </div>
+            )}
           </div>
         </div>
       </main>
