@@ -16,6 +16,7 @@ function App() {
   const [childDropIndex, setChildDropIndex] = useState(null)
   const [selectedId, setSelectedId] = useState(null)
   const [isOverPhone, setIsOverPhone] = useState(false)
+  const [hoverZone, setHoverZone] = useState(null)
 
   const resetDrag = () => {
     setDraggedItem(null)
@@ -25,6 +26,7 @@ function App() {
     setChildDropIndex(null)
     setHoverDivId(null)
     setIsOverPhone(false)
+    setHoverZone(null)
   }
 
   const getShadowSize = (label, inRow) => {
@@ -35,7 +37,8 @@ function App() {
     return `h-8 ${width}`
   }
 
-  const isSelfDrop = dragIndex !== null && (dropIndex === dragIndex || dropIndex === dragIndex + 1)
+  const isDraggingDropped = dragIndex !== null || childDrag !== null
+  const isSelfDrop =dragIndex !== null && (dropIndex === dragIndex || dropIndex === dragIndex + 1)
   const allItems = droppedItems.flatMap(d => [d, ...d.children])
   const selectedItem = allItems.find(d => d.id === selectedId)
   const selectedTag = selectedItem?.label.split(' ')[0]
@@ -69,17 +72,45 @@ function App() {
           )}
         </header>
 
-        <nav className="flex">
+        {isDraggingDropped ? (
+          <nav className="flex">
+            {[
+              { label: 'SAVE AS TEMPLATE', icon: 'bookmark_add', highlight: 'bg-blue-400' },
+              { label: 'DELETE', icon: 'delete', highlight: 'bg-red-500', action: () => {
+                setDroppedItems(droppedItems.filter(d => d.id !== draggedItem.id).map(d => ({ ...d, children: d.children.filter(c => c.id !== draggedItem.id) })))
+                if (selectedId === draggedItem.id) setShowSheet(false)
+              } }
+            ].map(zone =>
+              <div
+                key={zone.label}
+                onDragOver={(e) => {
+                  e.preventDefault()
+                  setHoverZone(zone.label)
+                }}
+                onDragLeave={() => setHoverZone(null)}
+                onDrop={(e) => {
+                  e.preventDefault()
+                  zone.action?.()
+                  resetDrag()
+                }}
+                className={`flex-1 flex gap-2 p-3 items-center justify-center font-medium border-b-6 border-transparent text-white transition-colors ${hoverZone === zone.label ? zone.highlight : 'bg-blue-500'}`}
+              >
+                <span className="material-symbols-outlined text-lg">{zone.icon}</span>
+                {zone.label}
+              </div>
+            )}
+          </nav>
+        ) : <nav className="flex">
           {['VIEW', 'CODE'].map(tab =>
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`flex-1 flex p-3 items-center justify-center cursor-pointer font-medium border-b-6 bg-blue-500 text-white ${activeTab === tab ? 'border-yellow-300' : 'border-transparent hover:border-yellow-500'}`}
+              className={`flex-1 flex p-3 items-center justify-center cursor-pointer font-medium border-b-6 bg-blue-500 hover:bg-blue-400 text-white  ${activeTab === tab ? 'border-yellow-300' : 'border-transparent'}`}
             >
               {tab}
             </button>
           )}
-        </nav>
+        </nav>}
       </div>
 
       <main className="flex-1 min-h-0 flex lg:px-3 lg:gap-3">
