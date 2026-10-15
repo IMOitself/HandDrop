@@ -1,12 +1,12 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 
 const iconBtn = "aspect-square flex-none flex items-center justify-center text-white rounded-sm hover:bg-blue-700 transition-colors cursor-pointer"
 
 function App() {
-  const [activeTab, setActiveTab] = useState('view')
+  const [activeTab, setActiveTab] = useState('VIEW')
   const [drawerTab, setDrawerTab] = useState(0)
-  const [sheetTab, setSheetTab] = useState('basic')
-  const [showSheet, setShowSheet] = useState(true)
+  const [sheetTab, setSheetTab] = useState('attributes')
+  const [showSheet, setShowSheet] = useState(false)
   const [droppedItems, setDroppedItems] = useState([])
   const [draggedItem, setDraggedItem] = useState(null)
   const [dragIndex, setDragIndex] = useState(null)
@@ -36,42 +36,58 @@ function App() {
   }
 
   const isSelfDrop = dragIndex !== null && (dropIndex === dragIndex || dropIndex === dragIndex + 1)
+  const allItems = droppedItems.flatMap(d => [d, ...d.children])
+  const selectedItem = allItems.find(d => d.id === selectedId)
+  const selectedTag = selectedItem?.label.split(' ')[0]
+  const nextId = (label) => label.split(' ')[0] + (allItems.filter(d => d.label === label).length + 1)
+
+  const dupeSelected = (offset) => {
+    const nextItems = [...droppedItems]
+    const parentDiv = nextItems.find(d => d.children.some(c => c.id === selectedId))
+    const list = parentDiv ? parentDiv.children : nextItems
+    const index = list.findIndex(d => d.id === selectedId)
+    if (index === -1) return
+    const original = list[index]
+    const copy = { ...original, id: Date.now() + Math.random(), attributes: { ...original.attributes, id: nextId(original.label) }, children: original.children.map(c => ({ ...c, id: Date.now() + Math.random() })) }
+    list.splice(index + offset, 0, copy)
+    setDroppedItems(nextItems)
+  }
 
   return (
-    <div className="h-full flex flex-col gap-2 overflow-hidden font-sans text-xs text-blue-900 bg-white border border-blue-200 relative">
+    <div className="h-full flex flex-col gap-2 overflow-hidden font-sans text-xs text-blue-900 relative">
 
-      <div className='flex flex-col'>
-      <header className="flex gap-2 p-2 bg-blue-500">
-        <button className={iconBtn}>
-          <span className="material-symbols-outlined text-lg">arrow_back</span>
-        </button>
-        <div className="flex-1 flex items-center justify-center text-white truncate">project name</div>
-        {['undo', 'redo', 'save', 'menu'].map(icon =>
-          <button key={icon} className={iconBtn}>
-            <span className="material-symbols-outlined text-lg">{icon}</span>
+      <div className='flex flex-col lg:rounded-sm lg:mt-2 lg:overflow-hidden'>
+        <header className="flex gap-2 p-2 bg-blue-500">
+          <button className={iconBtn}>
+            <span className="material-symbols-outlined text-lg">arrow_back</span>
           </button>
-        )}
-      </header>
+          <div className="flex-1 flex items-center justify-center text-white truncate">project name</div>
+          {['undo', 'redo', 'save', 'menu'].map(icon =>
+            <button key={icon} className={iconBtn}>
+              <span className="material-symbols-outlined text-lg">{icon}</span>
+            </button>
+          )}
+        </header>
 
-      <nav className="flex">
-        {['VIEW', 'CODE'].map(tab =>
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`flex-1 flex p-3 items-center justify-center cursor-pointer font-medium border-b-6 bg-blue-500 text-white ${activeTab === tab ? 'border-yellow-300' : 'border-transparent hover:border-yellow-500'}`}
-          >
-            {tab}
-          </button>
-        )}
-      </nav>
+        <nav className="flex">
+          {['VIEW', 'CODE'].map(tab =>
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`flex-1 flex p-3 items-center justify-center cursor-pointer font-medium border-b-6 bg-blue-500 text-white ${activeTab === tab ? 'border-yellow-300' : 'border-transparent hover:border-yellow-500'}`}
+            >
+              {tab}
+            </button>
+          )}
+        </nav>
       </div>
 
-      <main className="flex-1 min-h-0 flex px-2">
+      <main className="flex-1 min-h-0 flex px-2 lg:px-0 lg:gap-2">
         <aside className="w-1/3 h-full flex-none flex flex-col gap-2 p-2 overflow-hidden border border-blue-200 rounded-sm">
           <div className="h-7 flex-none flex gap-2">
             {[
-              { label: 'components', icon: 'add_box' },
-              { label: 'layers', icon: 'widgets' }
+              { label: 'elements', icon: 'add_box' },
+              { label: 'templates', icon: 'widgets' }
             ].map((tab, i) =>
               <button
                 key={tab.label}
@@ -84,22 +100,22 @@ function App() {
             )}
           </div>
           {[
-            { label: 'div (row)', icon: 'view_column' },
-            { label: 'div (col)', icon: 'table_rows' },
-            { label: 'button', icon: 'smart_button' },
+            { label: 'div (row)', icon: 'view_column', attributes: { display: 'flex', 'flex-direction': 'row' } },
+            { label: 'div (col)', icon: 'table_rows', attributes: { display: 'flex', 'flex-direction': 'column' } },
+            { label: 'button', icon: 'left_click' },
             { label: 'text', icon: 'text_fields' },
             { label: 'image', icon: 'image' },
-            { label: 'input', icon: 'edit_note' }
+            { label: 'input', icon: 'text_format' }
           ].map((el, i) =>
             <div
               key={i}
               draggable
               onDragStart={() => {
-                setDraggedItem({ ...el, id: Date.now() + Math.random(), children: [] })
+                setDraggedItem({ ...el, id: Date.now() + Math.random(), attributes: { ...el.attributes, id: nextId(el.label) }, children: [] })
                 setDragIndex(null)
               }}
               onDragEnd={() => resetDrag()}
-              className="flex items-center p-2 gap-2 justify-center border border-blue-100 rounded-sm bg-white hover:bg-blue-50 active:cursor-grabbing transition-colors"
+              className="flex items-center p-2 gap-2 justify-center border border-blue-100 rounded-sm bg-white hover:bg-blue-50 cursor-grab active:cursor-grabbing transition-colors"
             >
               <span className="material-symbols-outlined text-lg">{el.icon}</span>
               {el.label}
@@ -318,44 +334,96 @@ function App() {
       {showSheet && (
         <section
           onClick={(e) => e.stopPropagation()}
-          className="h-[28%] flex-none flex flex-col gap-2 p-2 bg-white border border-blue-200 rounded-sm absolute bottom-0 w-full z-10"
+          className="h-[32%] flex-none flex flex-col overflow-hidden bg-white border border-blue-200 rounded-t-sm absolute bottom-0 w-full z-10"
         >
-          {/* <div className='flex justify-center items-center w-full'>
-            <div className="h-7 flex-none flex items-center gap-2">
-              <span className="material-symbols-outlined flex items-center">table_rows</span>
-              <div className="flex-1 flex items-center justify-center text-xl">divider</div>
-            </div>
-          </div> */}
-
-          <div className="h-7 flex-none flex gap-2 justify-between items-center">
-            <div className="flex gap-2 flex-1 h-full">
-              {['attributes', 'options', 'events'].map(tab =>
-                <button
-                  key={tab}
-                  onClick={() => setSheetTab(tab)}
-                  className={`w-[22%] flex items-center justify-center cursor-pointer rounded-sm transition-colors ${sheetTab === tab ? 'bg-blue-500 text-white' : 'bg-blue-50 text-blue-600 hover:bg-blue-100'}`}
-                >
-                  {tab}
-                </button>
-              )}
-            </div>
+          <header className="h-9 flex-none flex items-center gap-2 px-2 bg-blue-500 text-white">
+            <span className="material-symbols-outlined text-lg">{selectedItem?.icon ?? 'select'}</span>
+            <div className="truncate text-sm">{selectedItem?.attributes?.id ?? 'no selection'}</div>
+            {selectedItem?.attributes?.class && <div className="truncate opacity-75">.{selectedItem.attributes.class}</div>}
+            <span className="material-symbols-outlined text-lg">arrow_drop_down</span>            <div className="flex-1" />
             <button
-              onClick={() => setShowSheet(false)}
-              className="h-full aspect-square flex items-center justify-center text-blue-600 hover:bg-blue-50 rounded-sm cursor-pointer transition-colors"
+              onClick={() => {
+                setSelectedId(null)
+                setShowSheet(false)
+              }}
+              className={`${iconBtn} h-full`}
             >
               <span className="material-symbols-outlined text-lg">close</span>
             </button>
-          </div>
+          </header>
 
-          <div className="flex-1 min-h-0 flex gap-2 overflow-x-auto justify-start scrollbar-none">
-            {Array.from({ length: 12 }, (_, i) =>
-              <div key={i} className="aspect-square h-full flex-none flex items-center justify-center bg-blue-50 border border-blue-200 rounded-sm hover:bg-blue-100 cursor-pointer transition-colors">
-                item {i + 1}
-              </div>
+          <nav className="h-9 flex-none flex gap-2 px-2 pt-2">
+            {['attributes', 'options', 'events'].map(tab =>
+              <button
+                key={tab}
+                onClick={() => setSheetTab(tab)}
+                className={`w-[22%] flex items-center justify-center cursor-pointer rounded-t-sm transition-colors ${sheetTab === tab ? 'bg-blue-500 text-white' : 'bg-blue-50 text-blue-600 hover:bg-blue-100'}`}
+              >
+                {tab}
+              </button>
             )}
-            <div className="aspect-square h-full hidden flex-none items-center justify-center bg-blue-500 text-white rounded-sm sticky right-0 z-10 cursor-pointer hover:bg-blue-600 transition-colors">
-              see all
-            </div>
+          </nav>
+
+          <div className="flex-1 min-h-0 flex gap-2 p-2 overflow-x-auto bg-blue-50 scrollbar-none">
+            {{
+              attributes: [
+                { category: 'layout', label: 'display', icon: 'view_quilt' },
+                { category: 'layout', label: 'width', icon: 'width' },
+                { category: 'layout', label: 'height', icon: 'height' },
+                { category: 'layout', label: 'margin', icon: 'arrows_output' },
+                { category: 'layout', label: 'padding', icon: 'arrows_input' },
+                { category: 'layout', label: 'position', icon: 'open_with' },
+                { category: 'layout', label: 'z-index', icon: 'layers' },
+                { category: 'element', label: 'flex-direction', icon: 'swap_horiz', only: ['div'] },
+                { category: 'element', label: 'justify-content', icon: 'align_horizontal_center', only: ['div'] },
+                { category: 'element', label: 'align-items', icon: 'align_vertical_center', only: ['div'] },
+                { category: 'element', label: 'gap', icon: 'space_bar', only: ['div'] },
+                { category: 'element', label: 'src', icon: 'image', only: ['image'] },
+                { category: 'element', label: 'alt', icon: 'short_text', only: ['image'] },
+                { category: 'element', label: 'object-fit', icon: 'fit_screen', only: ['image'] },
+                { category: 'element', label: 'type', icon: 'category', only: ['input', 'button'] },
+                { category: 'element', label: 'placeholder', icon: 'edit_note', only: ['input'] },
+                { category: 'element', label: 'value', icon: 'data_object', only: ['input'] },
+                { category: 'element', label: 'name', icon: 'badge', only: ['input'] },
+                { category: 'element', label: 'disabled', icon: 'block', only: ['input', 'button'] },
+                { category: 'typography', label: 'color', icon: 'format_color_text', only: ['text', 'button', 'input'] },
+                { category: 'typography', label: 'font-size', icon: 'format_size', only: ['text', 'button', 'input'] },
+                { category: 'typography', label: 'font-weight', icon: 'format_bold', only: ['text', 'button', 'input'] },
+                { category: 'typography', label: 'text-align', icon: 'format_align_center', only: ['text', 'button', 'input'] },
+                { category: 'typography', label: 'line-height', icon: 'format_line_spacing', only: ['text', 'button', 'input'] },
+                { category: 'visual', label: 'border', icon: 'border_style' },
+                { category: 'visual', label: 'background', icon: 'background_replace' },
+                { category: 'visual', label: 'cursor', icon: 'arrow_selector_tool' },
+                { category: 'identity', label: 'id', icon: 'tag' },
+                { category: 'identity', label: 'class', icon: 'label' }
+              ],
+              options: [
+                { label: 'dupe before', icon: 'add_row_above', action: () => dupeSelected(0) },
+                { label: 'dupe after', icon: 'add_row_below', action: () => dupeSelected(1) }
+              ],
+              events: [
+                { label: 'on click', icon: 'touch_app' }
+              ]
+            }[sheetTab].filter(sheetItem => !sheetItem.only || sheetItem.only.includes(selectedTag)).map((sheetItem, i, list) => {
+              const categoryName = sheetItem.category === 'element' ? selectedTag : sheetItem.category
+              const isNewCategory = sheetItem.category && list[i - 1]?.category !== sheetItem.category
+              return [
+                isNewCategory && (
+                  <div key={`${sheetItem.category}-divider`} className="flex-none flex items-center justify-center p-1 border border-blue-200 rounded-sm rotate-180 [writing-mode:vertical-rl]">
+                    {categoryName}
+                  </div>
+                ),
+                <button
+                  key={sheetItem.label}
+                  onClick={sheetItem.action}
+                  className="aspect-square h-full flex-none flex flex-col gap-1 p-1 items-center justify-center text-center leading-tight bg-white border border-blue-200 rounded-sm hover:bg-blue-100 cursor-pointer transition-colors"
+                >
+                  <span className="material-symbols-outlined text-2xl text-blue-500">{sheetItem.icon}</span>
+                  {sheetItem.label}
+                  {selectedItem?.attributes?.[sheetItem.label] && <span className="max-w-full truncate text-blue-400">{selectedItem.attributes[sheetItem.label]}</span>}
+                </button>
+              ]
+            })}
           </div>
         </section>
       )}
