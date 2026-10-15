@@ -17,6 +17,9 @@ function App() {
   const [selectedId, setSelectedId] = useState(null)
   const [isOverPhone, setIsOverPhone] = useState(false)
   const [hoverZone, setHoverZone] = useState(null)
+  const [dialogAttr, setDialogAttr] = useState(null)
+  const [dialogValue, setDialogValue] = useState('')
+  const [isAllSides, setIsAllSides] = useState(false)
 
   const resetDrag = () => {
     setDraggedItem(null)
@@ -43,6 +46,26 @@ function App() {
   const selectedItem = allItems.find(d => d.id === selectedId)
   const selectedTag = selectedItem?.label.split(' ')[0]
   const nextId = (label) => label.split(' ')[0] + (allItems.filter(d => d.label === label).length + 1)
+
+  const isCustomValue = !dialogAttr?.options?.includes(dialogValue)
+
+  const openDialog = (attr) => {
+    const value = selectedItem?.attributes?.[attr.label] ?? ''
+    setDialogAttr(attr)
+    if (!attr.sides) return setDialogValue(value)
+    const [top = '0', right = top, bottom = top, left = right] = value.replace(/rem/g, '').split(' ').filter(Boolean)
+    setDialogValue({ top, right, bottom, left })
+  }
+
+  const saveDialog = () => {
+    const { top, right, bottom, left } = dialogValue
+    const isSameSides = top === right && top === bottom && top === left
+    const sidesValue = isSameSides ? `${top}rem` : `${top}rem ${right}rem ${bottom}rem ${left}rem`
+    const value = dialogAttr.sides ? sidesValue : dialogValue
+    const update = item => item.id === selectedId ? { ...item, attributes: { ...item.attributes, [dialogAttr.label]: value } } : item
+    setDroppedItems(droppedItems.map(d => ({ ...update(d), children: d.children.map(update) })))
+    setDialogAttr(null)
+  }
 
   const dupeSelected = (offset) => {
     const nextItems = [...droppedItems]
@@ -398,33 +421,34 @@ function App() {
           <div className="flex-1 min-h-0 flex gap-1 p-1 overflow-x-auto bg-blue-50 scrollbar-none">
             {{
               attributes: [
-                { category: 'layout', label: 'display', icon: 'view_quilt' },
-                { category: 'layout', label: 'width', icon: 'width' },
-                { category: 'layout', label: 'height', icon: 'height' },
-                { category: 'layout', label: 'margin', icon: 'arrows_output' },
-                { category: 'layout', label: 'padding', icon: 'arrows_input' },
-                { category: 'layout', label: 'position', icon: 'open_with' },
+                { category: 'layout', label: 'display', icon: 'view_quilt', options: ['block', 'flex', 'inline', 'inline-block', 'none'] },
+                { category: 'layout', label: 'width', icon: 'width', options: ['auto', '100%', 'fit-content'] },
+                { category: 'layout', label: 'height', icon: 'height', options: ['auto', '100%', 'fit-content'] },
+                { category: 'layout', label: 'margin', icon: 'arrows_output', sides: true },
+                { category: 'layout', label: 'padding', icon: 'arrows_input', sides: true },
+                { category: 'layout', label: 'position', icon: 'open_with', options: ['static', 'relative', 'absolute', 'fixed', 'sticky'] },
                 { category: 'layout', label: 'z-index', icon: 'layers' },
-                { category: 'element', label: 'flex-direction', icon: 'swap_horiz', only: ['div'] },
-                { category: 'element', label: 'justify-content', icon: 'align_horizontal_center', only: ['div'] },
-                { category: 'element', label: 'align-items', icon: 'align_vertical_center', only: ['div'] },
+                { category: 'element', label: 'flex-direction', icon: 'swap_horiz', only: ['div'], options: ['row', 'column', 'row-reverse', 'column-reverse'] },
+                { category: 'element', label: 'justify-content', icon: 'align_horizontal_center', only: ['div'], options: ['flex-start', 'center', 'flex-end', 'space-between', 'space-around'] },
+                { category: 'element', label: 'align-items', icon: 'align_vertical_center', only: ['div'], options: ['stretch', 'flex-start', 'center', 'flex-end'] },
                 { category: 'element', label: 'gap', icon: 'space_bar', only: ['div'] },
                 { category: 'element', label: 'src', icon: 'image', only: ['image'] },
                 { category: 'element', label: 'alt', icon: 'short_text', only: ['image'] },
-                { category: 'element', label: 'object-fit', icon: 'fit_screen', only: ['image'] },
-                { category: 'element', label: 'type', icon: 'category', only: ['input', 'button'] },
+                { category: 'element', label: 'object-fit', icon: 'fit_screen', only: ['image'], options: ['cover', 'contain', 'fill', 'none'] },
+                { category: 'element', label: 'type', icon: 'category', only: ['input'], options: ['text', 'number', 'email', 'password'] },
+                { category: 'element', label: 'type', icon: 'category', only: ['button'], options: ['button', 'submit', 'reset'] },
                 { category: 'element', label: 'placeholder', icon: 'edit_note', only: ['input'] },
                 { category: 'element', label: 'value', icon: 'data_object', only: ['input'] },
                 { category: 'element', label: 'name', icon: 'badge', only: ['input'] },
-                { category: 'element', label: 'disabled', icon: 'block', only: ['input', 'button'] },
+                { category: 'element', label: 'disabled', icon: 'block', only: ['input', 'button'], options: ['true', 'false'] },
                 { category: 'typography', label: 'color', icon: 'format_color_text', only: ['text', 'button', 'input'] },
                 { category: 'typography', label: 'font-size', icon: 'format_size', only: ['text', 'button', 'input'] },
-                { category: 'typography', label: 'font-weight', icon: 'format_bold', only: ['text', 'button', 'input'] },
-                { category: 'typography', label: 'text-align', icon: 'format_align_center', only: ['text', 'button', 'input'] },
+                { category: 'typography', label: 'font-weight', icon: 'format_bold', only: ['text', 'button', 'input'], options: ['normal', 'bold', 'lighter', 'bolder'] },
+                { category: 'typography', label: 'text-align', icon: 'format_align_center', only: ['text', 'button', 'input'], options: ['left', 'center', 'right', 'justify'] },
                 { category: 'typography', label: 'line-height', icon: 'format_line_spacing', only: ['text', 'button', 'input'] },
                 { category: 'visual', label: 'border', icon: 'border_style' },
                 { category: 'visual', label: 'background', icon: 'background_replace' },
-                { category: 'visual', label: 'cursor', icon: 'arrow_selector_tool' },
+                { category: 'visual', label: 'cursor', icon: 'arrow_selector_tool', options: ['auto', 'pointer', 'default', 'text', 'not-allowed'] },
                 { category: 'identity', label: 'id', icon: 'tag' },
                 { category: 'identity', label: 'class', icon: 'label' }
               ],
@@ -446,7 +470,7 @@ function App() {
                 ),
                 <button
                   key={sheetItem.label}
-                  onClick={sheetItem.action}
+                  onClick={sheetTab === 'attributes' ? () => openDialog(sheetItem) : sheetItem.action}
                   className="size-24 flex-none flex flex-col p-1 items-center justify-center text-center leading-tight bg-white border border-blue-200 rounded-sm hover:bg-blue-100 cursor-pointer transition-colors"
                 >
                   <span className="material-symbols-outlined text-lg text-blue-500">{sheetItem.icon}</span>
@@ -457,6 +481,74 @@ function App() {
             })}
           </div>
         </section>
+      )}
+
+      {dialogAttr && (
+        <div onClick={() => setDialogAttr(null)} className="absolute inset-0 z-20 flex items-center justify-center bg-blue-900/40">
+          <div onClick={(e) => e.stopPropagation()} className="w-[80%] max-w-sm flex flex-col overflow-hidden bg-white rounded-sm">
+            <h2 className="flex items-center gap-2 p-3 text-sm font-bold text-blue-500">
+              <span className="material-symbols-outlined text-lg">{dialogAttr.icon}</span>
+              {dialogAttr.label}
+            </h2>
+
+            <div className="flex flex-col gap-2 px-3 pb-3">
+              {dialogAttr.sides && (
+                <>
+                  <div className="grid grid-cols-2 gap-2">
+                    {['left', 'right', 'top', 'bottom'].map(side =>
+                      <label key={side} className="flex flex-col gap-1">
+                        {side}
+                        <div className="flex items-center gap-1 p-2 border border-blue-200 rounded-sm focus-within:border-blue-500">
+                          <input
+                            value={dialogValue[side]}
+                            onChange={(e) => {
+                              const value = e.target.value
+                              if (isAllSides) return setDialogValue({ top: value, right: value, bottom: value, left: value })
+                              setDialogValue({ ...dialogValue, [side]: value })
+                            }}
+                            className="w-full outline-none"
+                          />
+                          rem
+                        </div>
+                      </label>
+                    )}
+                  </div>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" checked={isAllSides} onChange={(e) => setIsAllSides(e.target.checked)} className="accent-blue-500" />
+                    {dialogAttr.label} on all sides
+                  </label>
+                </>
+              )}
+
+              {dialogAttr.options && [...dialogAttr.options, 'custom value'].map(option =>
+                <label key={option} className="flex items-center gap-2 p-1 cursor-pointer">
+                  <input
+                    type="radio"
+                    checked={option === 'custom value' ? isCustomValue : dialogValue === option}
+                    onChange={() => setDialogValue(option === 'custom value' ? '' : option)}
+                    className="accent-blue-500"
+                  />
+                  {option}
+                </label>
+              )}
+
+              {!dialogAttr.sides && isCustomValue && (
+                <input
+                  autoFocus
+                  value={dialogValue}
+                  onChange={(e) => setDialogValue(e.target.value)}
+                  placeholder={`enter ${dialogAttr.label} value`}
+                  className="p-2 border border-blue-200 rounded-sm outline-none focus:border-blue-500"
+                />
+              )}
+            </div>
+
+            <footer className="flex justify-end gap-2 p-2 bg-blue-500 text-white">
+              <button onClick={() => setDialogAttr(null)} className="px-3 py-2 rounded-sm cursor-pointer hover:bg-blue-400">CANCEL</button>
+              <button onClick={saveDialog} className="px-3 py-2 rounded-sm cursor-pointer hover:bg-blue-400">SAVE</button>
+            </footer>
+          </div>
+        </div>
       )}
 
     </div>
