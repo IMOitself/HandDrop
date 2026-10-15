@@ -1,4 +1,4 @@
-﻿import { useState } from 'react'
+﻿import { Fragment, useState } from 'react'
 
 const units = ['rem', 'px', 'em', '%', 'vh', 'vw', 'vmin', 'vmax', 'ch']
 const globalValues = ['inherit', 'initial', 'revert', 'revert-layer', 'unset']
@@ -56,6 +56,35 @@ function App() {
   const selectedTag = selectedItem?.label.split(' ')[0]
   const nextId = (label) => label.split(' ')[0] + (allItems.filter(d => d.label === label).length + 1)
 
+  const elementProps = (item, baseClass) => {
+    const { class: userClass = '', disabled, ...attributes } = item.attributes ?? {}
+    const htmlNames = ['id', 'src', 'alt', 'type', 'placeholder', 'value', 'name']
+    const setEntries = Object.entries(attributes).filter(([, value]) => value)
+    const htmlProps = Object.fromEntries(setEntries.filter(([name]) => htmlNames.includes(name)))
+    const styleEntries = setEntries.filter(([name]) => !htmlNames.includes(name)).map(([name, value]) => [name.replace(/-(\w)/g, (_, letter) => letter.toUpperCase()), value])
+    return { ...htmlProps, style: Object.fromEntries(styleEntries), className: `${baseClass} ${userClass} ${disabled === 'true' ? 'opacity-50' : ''}` }
+  }
+
+  const renderElement = (item, dragHandlers, stateClass, children) => {
+    const props = baseClass => ({
+      ...dragHandlers,
+      draggable: true,
+      onClick: (e) => {
+        e.stopPropagation()
+        setSelectedId(item.id)
+        setShowSheet(true)
+      },
+      onDragEnd: () => resetDrag(),
+      ...elementProps(item, `${baseClass} cursor-grab active:cursor-grabbing ${selectedId === item.id ? 'ring-2 ring-yellow-300' : ''} ${stateClass}`)
+    })
+    if (item.label === 'button') return <button {...props('w-full p-2 bg-blue-500 text-white rounded-sm')}>button</button>
+    if (item.label === 'text') return <p {...props('p-1 text-blue-900')}>text</p>
+    if (item.label === 'input') return <input readOnly placeholder="input" {...props('w-full p-2 border border-blue-200 rounded-sm bg-white')} />
+    if (item.label === 'image' && item.attributes?.src) return <img {...props('w-full h-20 object-cover rounded-sm')} />
+    if (item.label === 'image') return <div {...props('w-full h-20 bg-blue-100 rounded-sm flex items-center justify-center text-blue-400')}><span className="material-symbols-outlined text-2xl pointer-events-none">image</span></div>
+    return <div {...props(`p-2 border border-dashed border-blue-300 rounded-sm min-h-12 flex ${item.label === 'div (row)' ? 'flex-row' : 'flex-col'} gap-2`)}>{children}</div>
+  }
+
   const isNumberText = text => /^-?[\d.]+[a-z%]*$/.test(text)
   const toAmount = text => {
     const [, amount, unit] = text.match(/^(-?[\d.]*)(.*)$/)
@@ -104,8 +133,8 @@ function App() {
     setDialogValue(toSidesText(nextDraft))
   }
 
-  const saveDialog = () => {
-    const update = item => item.id === selectedId ? { ...item, attributes: { ...item.attributes, [dialogAttr.label]: dialogValue } } : item
+  const saveDialog = (value) => {
+    const update = item => item.id === selectedId ? { ...item, attributes: { ...item.attributes, [dialogAttr.label]: value } } : item
     setDroppedItems(droppedItems.map(d => ({ ...update(d), children: d.children.map(update) })))
     setDialogAttr(null)
   }
@@ -277,144 +306,105 @@ function App() {
             {droppedItems.length === 0 && !isOverPhone && (
               <div className="m-auto">phone layout</div>
             )}
-            {droppedItems.map((item, i) =>
-              <div key={i} className="flex flex-col gap-2">
-                {isOverPhone && !hoverDivId && !isSelfDrop && dropIndex === i && (
-                  <div
-                    onDragOver={(e) => {
-                      e.preventDefault()
-                      e.stopPropagation()
-                    }}
-                    className={`${getShadowSize(draggedItem?.label, false)} border-2 border-dashed border-blue-300 bg-blue-50/60 rounded-sm shadow-inner shrink-0`}
-                  />
-                )}
-                <div
-                  draggable
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    setSelectedId(item.id)
-                    setShowSheet(true)
-                  }}
-                  onDragStart={() => {
-                    setDraggedItem(item)
-                    setDragIndex(i)
-                  }}
-                  onDragEnd={() => resetDrag()}
-                  onDragOver={(e) => {
-                    e.preventDefault()
-                    e.stopPropagation()
-                    setIsOverPhone(true)
-                    setHoverDivId(null)
-                    const rect = e.currentTarget.getBoundingClientRect()
-                    const isBottom = (e.clientY - rect.top) > (rect.height / 2)
-                    setDropIndex(isBottom ? i + 1 : i)
-                  }}
-                  className={`active:cursor-grabbing rounded-sm ${selectedId === item.id ? 'ring-2 ring-blue-500' : ''} ${dragIndex === i ? 'opacity-40' : ''}`}
-                >
-                  {item.label === 'button' && <button className="w-full p-2 bg-blue-500 text-white rounded-sm pointer-events-none">button</button>}
-                  {item.label === 'text' && <p className="p-1 text-blue-900">text</p>}
-                  {item.label === 'image' && <div className="h-20 bg-blue-100 rounded-sm flex items-center justify-center text-blue-400"><span className="material-symbols-outlined text-2xl">image</span></div>}
-                  {item.label === 'input' && <input readOnly placeholder="input" className="w-full p-2 border border-blue-200 rounded-sm bg-white pointer-events-none" />}
-                  {item.label.startsWith('div') && (
+            {droppedItems.map((item, i) => {
+              const isDiv = item.label.startsWith('div')
+              const isChildSelf = childDrag?.parentId === item.id && (childDropIndex === childDrag.index || childDropIndex === childDrag.index + 1)
+              const showEndShadow = hoverDivId === item.id && draggedItem && !isChildSelf && (childDropIndex === null || childDropIndex >= item.children.length)
+              return (
+                <Fragment key={item.id}>
+                  {isOverPhone && !hoverDivId && !isSelfDrop && dropIndex === i && (
                     <div
                       onDragOver={(e) => {
                         e.preventDefault()
                         e.stopPropagation()
-                        const isSelf = draggedItem?.id === item.id
-                        if (isSelf) return
-                        setIsOverPhone(true)
-                        setDropIndex(null)
-                        setHoverDivId(item.id)
-                        const isRow = item.label === 'div (row)'
-                        const mousePos = isRow ? e.clientX : e.clientY
-                        const childEls = Array.from(e.currentTarget.querySelectorAll(':scope > [data-child]'))
-                        let target = childEls.length
-                        for (let ci = 0; ci < childEls.length; ci++) {
-                          const rect = childEls[ci].getBoundingClientRect()
-                          const mid = isRow ? (rect.left + rect.width / 2) : (rect.top + rect.height / 2)
-                          if (mousePos < mid) {
-                            target = ci
-                            break
-                          }
-                        }
-                        setChildDropIndex(target)
                       }}
-                      onDragLeave={(e) => {
-                        const leaving = !e.currentTarget.contains(e.relatedTarget)
-                        if (leaving) {
-                          setHoverDivId(null)
-                          setChildDropIndex(null)
-                        }
-                      }}
-                      onDrop={(e) => {
-                        e.preventDefault()
-                        e.stopPropagation()
-                        const isSelf = draggedItem?.id === item.id
-                        if (isSelf) return
-                        const hasItem = draggedItem !== null
-                        if (hasItem) {
-                          const nextItems = [...droppedItems]
-                          if (childDrag) {
-                            const parentDiv = nextItems.find(d => d.id === childDrag.parentId)
-                            if (parentDiv) parentDiv.children.splice(childDrag.index, 1)
-                          }
-                          const isReorder = dragIndex !== null
-                          if (isReorder) nextItems.splice(dragIndex, 1)
-                          const targetDiv = nextItems.find(d => d.id === item.id)
-                          if (targetDiv) {
-                            const children = [...(targetDiv.children || [])]
-                            let pos = childDropIndex !== null ? childDropIndex : children.length
-                            if (childDrag && childDrag.parentId === item.id && childDrag.index < pos) pos -= 1
-                            children.splice(pos, 0, draggedItem)
-                            targetDiv.children = children
-                          }
-                          setDroppedItems(nextItems)
-                        }
-                        resetDrag()
-                      }}
-                      className={`p-2 border border-dashed border-blue-300 rounded-sm min-h-12 flex ${item.label === 'div (row)' ? 'flex-row' : 'flex-col'} gap-2 ${hoverDivId === item.id ? 'bg-blue-100/40 border-blue-500' : ''}`}
-                    >
-                      {item.children?.map((child, ci) => {
-                        const isRow = item.label === 'div (row)'
-                        const isChildSelf = childDrag?.parentId === item.id && (childDropIndex === childDrag.index || childDropIndex === childDrag.index + 1)
-                        const showChildShadow = hoverDivId === item.id && draggedItem && !isChildSelf && childDropIndex === ci
-                        return (
-                          <div key={ci} data-child className={`flex ${isRow ? 'flex-row' : 'flex-col'} gap-2 ${isRow ? 'flex-1 min-w-0' : 'w-full'}`}>
-                            {showChildShadow && (
-                              <div className={`${getShadowSize(draggedItem?.label, isRow)} border-2 border-dashed border-blue-300 bg-blue-50/60 rounded-sm shadow-inner shrink-0 pointer-events-none`} />
-                            )}
-                            <div
-                              draggable
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                setSelectedId(child.id)
-                                setShowSheet(true)
-                              }}
-                              onDragStart={(e) => {
-                                e.stopPropagation()
-                                setDraggedItem(child)
-                                setChildDrag({ parentId: item.id, index: ci })
-                              }}
-                              onDragEnd={() => resetDrag()}
-                              className={`active:cursor-grabbing flex-1 min-w-0 rounded-sm ${selectedId === child.id ? 'ring-2 ring-blue-500' : ''} ${childDrag?.parentId === item.id && childDrag.index === ci ? 'opacity-40' : ''}`}
-                            >
-                              {child.label === 'button' && <button className="w-full p-2 bg-blue-500 text-white rounded-sm pointer-events-none">button</button>}
-                              {child.label === 'text' && <p className="p-1 text-blue-900 pointer-events-none">text</p>}
-                              {child.label === 'image' && <div className="h-16 bg-blue-100 rounded-sm flex items-center justify-center text-blue-400 pointer-events-none"><span className="material-symbols-outlined text-2xl">image</span></div>}
-                              {child.label === 'input' && <input readOnly placeholder="input" className="w-full p-2 border border-blue-200 rounded-sm bg-white pointer-events-none" />}
-                              {child.label.startsWith('div') && <div className={`p-2 border border-dashed border-blue-300 rounded-sm min-h-12 flex ${child.label === 'div (row)' ? 'flex-row' : 'flex-col'} gap-2 w-full pointer-events-none`} />}
-                            </div>
-                          </div>
-                        )
-                      })}
-                      {hoverDivId === item.id && draggedItem && !(childDrag?.parentId === item.id && (childDropIndex === childDrag.index || childDropIndex === childDrag.index + 1)) && (childDropIndex === null || childDropIndex >= (item.children?.length || 0)) && (
+                      className={`${getShadowSize(draggedItem?.label, false)} border-2 border-dashed border-blue-300 bg-blue-50/60 rounded-sm shadow-inner shrink-0`}
+                    />
+                  )}
+                  {renderElement(item, {
+                    onDragStart: (e) => {
+                      e.stopPropagation()
+                      setDraggedItem(item)
+                      setDragIndex(i)
+                    },
+                    onDragOver: (e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      setIsOverPhone(true)
+                      if (!isDiv) {
+                        setHoverDivId(null)
+                        const rect = e.currentTarget.getBoundingClientRect()
+                        const isBottom = (e.clientY - rect.top) > (rect.height / 2)
+                        return setDropIndex(isBottom ? i + 1 : i)
+                      }
+                      const isSelf = draggedItem?.id === item.id
+                      if (isSelf) return
+                      setDropIndex(null)
+                      setHoverDivId(item.id)
+                      const isRow = getComputedStyle(e.currentTarget).flexDirection.startsWith('row')
+                      const mousePos = isRow ? e.clientX : e.clientY
+                      const childEls = Array.from(e.currentTarget.querySelectorAll(':scope > [data-child]'))
+                      const target = childEls.findIndex(childEl => {
+                        const rect = childEl.getBoundingClientRect()
+                        return mousePos < (isRow ? rect.left + rect.width / 2 : rect.top + rect.height / 2)
+                      })
+                      setChildDropIndex(target === -1 ? childEls.length : target)
+                    },
+                    onDragLeave: (e) => {
+                      const leaving = isDiv && !e.currentTarget.contains(e.relatedTarget)
+                      if (!leaving) return
+                      setHoverDivId(null)
+                      setChildDropIndex(null)
+                    },
+                    onDrop: (e) => {
+                      if (!isDiv) return
+                      e.preventDefault()
+                      e.stopPropagation()
+                      const isSelf = draggedItem?.id === item.id
+                      if (isSelf || !draggedItem) return resetDrag()
+                      const nextItems = [...droppedItems]
+                      if (childDrag) {
+                        const parentDiv = nextItems.find(d => d.id === childDrag.parentId)
+                        if (parentDiv) parentDiv.children.splice(childDrag.index, 1)
+                      }
+                      const isReorder = dragIndex !== null
+                      if (isReorder) nextItems.splice(dragIndex, 1)
+                      const targetDiv = nextItems.find(d => d.id === item.id)
+                      if (targetDiv) {
+                        const children = [...targetDiv.children]
+                        let pos = childDropIndex !== null ? childDropIndex : children.length
+                        if (childDrag && childDrag.parentId === item.id && childDrag.index < pos) pos -= 1
+                        children.splice(pos, 0, draggedItem)
+                        targetDiv.children = children
+                      }
+                      setDroppedItems(nextItems)
+                      resetDrag()
+                    }
+                  }, `${dragIndex === i ? 'opacity-40' : ''} ${hoverDivId === item.id ? 'bg-blue-100/40 border-blue-500' : ''}`, isDiv && (
+                    <>
+                      {item.children.map((child, ci) =>
+                        <Fragment key={child.id}>
+                          {hoverDivId === item.id && draggedItem && !isChildSelf && childDropIndex === ci && (
+                            <div className={`${getShadowSize(draggedItem?.label, item.label === 'div (row)')} border-2 border-dashed border-blue-300 bg-blue-50/60 rounded-sm shadow-inner shrink-0 pointer-events-none`} />
+                          )}
+                          {renderElement(child, {
+                            'data-child': true,
+                            onDragStart: (e) => {
+                              e.stopPropagation()
+                              setDraggedItem(child)
+                              setChildDrag({ parentId: item.id, index: ci })
+                            }
+                          }, childDrag?.parentId === item.id && childDrag.index === ci ? 'opacity-40' : '')}
+                        </Fragment>
+                      )}
+                      {showEndShadow && (
                         <div className={`${getShadowSize(draggedItem?.label, item.label === 'div (row)')} border-2 border-dashed border-blue-300 bg-blue-50/60 rounded-sm shadow-inner shrink-0 pointer-events-none`} />
                       )}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
+                    </>
+                  ))}
+                </Fragment>
+              )
+            })}
             {isOverPhone && draggedItem && !hoverDivId && !isSelfDrop && (dropIndex === null || dropIndex >= droppedItems.length) && (
               <div
                 onDragOver={(e) => {
@@ -647,9 +637,11 @@ function App() {
               )}
             </div>
 
-            <footer className="flex justify-end gap-2 p-2 bg-blue-500 text-white">
+            <footer className="flex gap-2 p-2 bg-blue-500 text-white">
+              {savedValue && <button onClick={() => saveDialog('')} className="px-3 py-2 rounded-sm cursor-pointer hover:bg-blue-400">REMOVE</button>}
+              <div className="flex-1" />
               <button onClick={() => setDialogAttr(null)} className="px-3 py-2 rounded-sm cursor-pointer hover:bg-blue-400">CANCEL</button>
-              <button onClick={saveDialog} className="px-3 py-2 rounded-sm cursor-pointer hover:bg-blue-400">SAVE</button>
+              <button onClick={() => saveDialog(dialogValue)} className="px-3 py-2 rounded-sm cursor-pointer hover:bg-blue-400">SAVE</button>
             </footer>
           </div>
         </div>
