@@ -36,6 +36,7 @@
 - do not manually create or edit if we can just use terminal command like `vite create@latest`
 - only seperate files if the code hits 300 lines or if really necessary otherwise dont
 - only seperate it if it needs to be called repetetively
+- only use rem and %, dont do px or vw
 
 ## ui design
 - update this list if i mention ui design styles on chat or during editing

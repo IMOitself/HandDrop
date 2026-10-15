@@ -38,7 +38,7 @@ function App() {
   const isSelfDrop = dragIndex !== null && (dropIndex === dragIndex || dropIndex === dragIndex + 1)
 
   return (
-    <div className="h-full flex flex-col p-2 gap-2 overflow-hidden font-sans text-xs text-blue-900 bg-white border border-blue-200 relative">
+    <div className="h-full flex flex-col gap-2 overflow-hidden font-sans text-xs text-blue-900 bg-white border border-blue-200 relative">
 
       <div className='flex flex-col'>
       <header className="flex gap-2 p-2 bg-blue-500">
@@ -66,12 +66,12 @@ function App() {
       </nav>
       </div>
 
-      <main className="flex-1 min-h-0 flex">
+      <main className="flex-1 min-h-0 flex px-2">
         <aside className="w-1/3 h-full flex-none flex flex-col gap-2 p-2 overflow-hidden border border-blue-200 rounded-sm">
           <div className="h-7 flex-none flex gap-2">
             {[
-              { label: 'components', icon: 'widgets' },
-              { label: 'layers', icon: 'layers' }
+              { label: 'components', icon: 'add_box' },
+              { label: 'layers', icon: 'widgets' }
             ].map((tab, i) =>
               <button
                 key={tab.label}
@@ -112,7 +112,7 @@ function App() {
             setSelectedId(null)
             setShowSheet(false)
           }}
-          className="flex-1 h-full min-w-0 flex items-center justify-center p-2 overflow-hidden border border-blue-200 rounded-sm bg-blue-50"
+          className="flex-1 h-full min-w-0 flex items-start justify-center p-2 overflow-hidden border border-blue-200 rounded-sm bg-blue-50"
           style={{ containerType: 'size' }}
         >
           <div
@@ -318,7 +318,7 @@ function App() {
       {showSheet && (
         <section
           onClick={(e) => e.stopPropagation()}
-          className="h-[28%] flex-none flex flex-col gap-2 p-2 bg-white border border-blue-200 rounded-sm absolute bottom-0 left-2 right-2 z-10"
+          className="h-[28%] flex-none flex flex-col gap-2 p-2 bg-white border border-blue-200 rounded-sm absolute bottom-0 w-full z-10"
         >
           {/* <div className='flex justify-center items-center w-full'>
             <div className="h-7 flex-none flex items-center gap-2">
@@ -329,7 +329,7 @@ function App() {
 
           <div className="h-7 flex-none flex gap-2 justify-between items-center">
             <div className="flex gap-2 flex-1 h-full">
-              {['basic', 'options', 'advanced'].map(tab =>
+              {['attributes', 'options', 'events'].map(tab =>
                 <button
                   key={tab}
                   onClick={() => setSheetTab(tab)}
