@@ -26,16 +26,34 @@ const toSidesText = sides => {
   return isSame ? sideTexts[0] : sideTexts.join(' ')
 }
 
-// remove an item from the top level or from inside a div
+// these helpers work at any depth of nested divs
+const flattenItems = items => items.flatMap(item => [item, ...flattenItems(item.children)])
+const containsItem = (item, id) => item.children.some(child => child.id === id || containsItem(child, id))
+const copyItem = item => ({ ...item, id: newId(), children: item.children.map(copyItem) })
+
+const updateItem = (items, id, change) => items.map(item =>
+  item.id === id ? change(item) : { ...item, children: updateItem(item.children, id, change) }
+)
+
 const removeItem = (items, id) => items
   .filter(item => item.id !== id)
-  .map(item => ({ ...item, children: item.children.filter(child => child.id !== id) }))
+  .map(item => ({ ...item, children: removeItem(item.children, id) }))
 
 // parentId null means the top level of the phone
 const insertItem = (items, newItem, parentId, index) => {
   const insertAt = list => [...list.slice(0, index), newItem, ...list.slice(index)]
   if (parentId === null) return insertAt(items)
-  return items.map(item => item.id === parentId ? { ...item, children: insertAt(item.children) } : item)
+  return updateItem(items, parentId, item => ({ ...item, children: insertAt(item.children) }))
+}
+
+// the div that holds this id or null for top level
+const findParent = (items, id) => {
+  for (const item of items) {
+    if (item.children.some(child => child.id === id)) return item
+    const found = findParent(item.children, id)
+    if (found) return found
+  }
+  return null
 }
 
 // find which slot the mouse is over inside a container
@@ -105,7 +123,7 @@ function App() {
   const [percentDraft, setPercentDraft] = useState('')
   const [customDraft, setCustomDraft] = useState('')
 
-  const allItems = droppedItems.flatMap(item => [item, ...item.children])
+  const allItems = flattenItems(droppedItems)
   const selectedItem = allItems.find(item => item.id === selectedId)
   const selectedTag = selectedItem && getTag(selectedItem)
   const nextId = label => getTag({ label }) + (allItems.filter(item => item.label === label).length + 1)
@@ -140,11 +158,10 @@ function App() {
 
   const dupeSelected = (offset) => {
     if (!selectedItem) return
-    const parent = droppedItems.find(item => item.children.some(child => child.id === selectedId))
+    const parent = findParent(droppedItems, selectedId)
     const list = parent ? parent.children : droppedItems
     const index = list.findIndex(item => item.id === selectedId)
-    const children = selectedItem.children.map(child => ({ ...child, id: newId() }))
-    const copy = { ...selectedItem, id: newId(), attributes: { ...selectedItem.attributes, id: nextId(selectedItem.label) }, children }
+    const copy = { ...copyItem(selectedItem), attributes: { ...selectedItem.attributes, id: nextId(selectedItem.label) } }
     setDroppedItems(insertItem(droppedItems, copy, parent ? parent.id : null, index + offset))
   }
 
@@ -164,8 +181,7 @@ function App() {
   }
 
   const saveDialog = (value) => {
-    const update = item => item.id === selectedId ? { ...item, attributes: { ...item.attributes, [dialogAttr.label]: value } } : item
-    setDroppedItems(droppedItems.map(item => ({ ...update(item), children: item.children.map(update) })))
+    setDroppedItems(updateItem(droppedItems, selectedId, item => ({ ...item, attributes: { ...item.attributes, [dialogAttr.label]: value } })))
     setDialogAttr(null)
   }
 
@@ -192,7 +208,6 @@ function App() {
 
   const renderElement = (item, parentId, index) => {
     const tag = getTag(item)
-    const isDropZone = tag === 'div' && parentId === null
     const direction = item.attributes?.['flex-direction'] || (item.label === 'div (row)' ? 'row' : 'column')
     const isRow = direction.startsWith('row')
     const stateClass = `cursor-grab active:cursor-grabbing ${selectedId === item.id ? 'ring-2 ring-yellow-300' : ''} ${drag?.item.id === item.id ? 'opacity-40' : ''}`
@@ -225,20 +240,21 @@ function App() {
       <div
         {...props(`p-2 border border-dashed border-blue-300 rounded-sm min-h-12 flex ${isRow ? 'flex-row' : 'flex-col'} gap-2 ${dropTarget?.parentId === item.id ? 'bg-blue-100/40 border-blue-500' : ''}`)}
         onDragOver={(e) => {
-          const isSelf = drag?.item.id === item.id
-          if (!isDropZone || isSelf) return
+          // a div cannot go inside itself so let its parent handle it
+          const isInsideDragged = drag && (drag.item.id === item.id || containsItem(drag.item, item.id))
+          if (isInsideDragged) return
           e.preventDefault()
           e.stopPropagation()
           setDropTarget({ parentId: item.id, index: getDropIndex(e, e.currentTarget) })
         }}
       >
-        {isDropZone && item.children.map((child, childIndex) =>
+        {item.children.map((child, childIndex) =>
           <Fragment key={child.id}>
             {renderShadow(item.id, childIndex, isRow)}
             {renderElement(child, item.id, childIndex)}
           </Fragment>
         )}
-        {isDropZone && renderShadow(item.id, item.children.length, isRow)}
+        {renderShadow(item.id, item.children.length, isRow)}
       </div>
     )
   }
