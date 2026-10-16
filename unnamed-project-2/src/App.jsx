@@ -210,11 +210,13 @@ function App() {
     const tag = getTag(item)
     const direction = item.attributes?.['flex-direction'] || (item.label === 'div (row)' ? 'row' : 'column')
     const isRow = direction.startsWith('row')
+    // inside a selected div drag the whole div instead
+    const isInsideSelected = selectedItem && containsItem(selectedItem, item.id)
     const stateClass = `cursor-grab active:cursor-grabbing ${selectedId === item.id ? 'ring-2 ring-yellow-300' : ''} ${drag?.item.id === item.id ? 'opacity-40' : ''}`
     const props = className => ({
       ...elementProps(item, `${className} ${stateClass}`),
       'data-item': true,
-      draggable: true,
+      draggable: !isInsideSelected,
       onDragEnd: resetDrag,
       onClick: (e) => {
         e.stopPropagation()
