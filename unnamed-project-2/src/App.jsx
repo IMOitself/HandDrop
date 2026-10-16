@@ -1,30 +1,43 @@
 ﻿import { Fragment, useState } from 'react'
-import { units, globalValues, elementList, attributeList } from './data'
+import { spacingScale, fractions, elementList, attributeList } from './data'
 
 const iconBtn = "aspect-square flex-none flex items-center justify-center text-white rounded-sm hover:bg-blue-700 transition-colors cursor-pointer"
-const inputBox = "flex items-center gap-1 p-2 border border-blue-200 rounded-sm focus-within:border-blue-500"
-const emptySide = { amount: '', unit: 'rem' }
+const emptySides = { top: '', right: '', bottom: '', left: '' }
+const sideLetters = { top: 't', right: 'r', bottom: 'b', left: 'l' }
 
 const newId = () => Date.now() + Math.random()
 const getTag = item => item.label.split(' ')[0]
-const toCamelCase = name => name.replace(/-(\w)/g, (_, letter) => letter.toUpperCase())
 
-// "12px" becomes { amount: '12', unit: 'px' }
-const toAmount = text => {
-  const [, amount, unit] = text.match(/^(-?[\d.]*)(.*)$/)
-  return { amount, unit: unit || 'rem' }
+// "p-4" with prefix "p" gives "4" if that step exists
+const stepOf = (prefix, className, steps) => {
+  const step = className.slice(prefix.length + 1)
+  return className.startsWith(prefix + '-') && steps.includes(step) ? step : ''
 }
-const isNumberText = text => /^-?[\d.]+[a-z%]*$/.test(text)
-const isSidesText = text => text.split(' ').every(isNumberText)
-const isCommonValue = (attr, value) => attr.options?.includes(value) || (attr.number && isNumberText(value)) || (attr.sides && isSidesText(value))
 
-const toSidesText = sides => {
-  const sideList = [sides.top, sides.right, sides.bottom, sides.left]
-  if (sideList.every(side => !side.amount)) return ''
-  const sideTexts = sideList.map(side => (side.amount || 0) + side.unit)
-  const isSame = new Set(sideTexts).size === 1
-  return isSame ? sideTexts[0] : sideTexts.join(' ')
+// "pt-2 pb-4" becomes { top: '2', bottom: '4' } or null if it is not plain sides
+const parseSides = (prefix, value) => {
+  const classes = value.split(' ').filter(Boolean)
+  const allSides = classes.length === 1 && stepOf(prefix, classes[0], spacingScale)
+  if (allSides) return { top: allSides, right: allSides, bottom: allSides, left: allSides }
+  const sides = { ...emptySides }
+  for (const className of classes) {
+    const side = Object.keys(sideLetters).find(name => stepOf(prefix + sideLetters[name], className, spacingScale))
+    if (!side) return null
+    sides[side] = stepOf(prefix + sideLetters[side], className, spacingScale)
+  }
+  return sides
 }
+
+const toSidesText = (prefix, sides) => {
+  const isSame = new Set(Object.values(sides)).size === 1
+  if (isSame) return sides.top ? `${prefix}-${sides.top}` : ''
+  return Object.keys(sideLetters).filter(side => sides[side]).map(side => `${prefix}${sideLetters[side]}-${sides[side]}`).join(' ')
+}
+
+const isCommonValue = (attr, value) => attr.options?.includes(value)
+  || (attr.scale && stepOf(attr.prefix, value, spacingScale))
+  || (attr.fraction && stepOf(attr.prefix, value, fractions))
+  || (attr.sides && parseSides(attr.prefix, value))
 
 // these helpers work at any depth of nested divs
 const flattenItems = items => items.flatMap(item => [item, ...flattenItems(item.children)])
@@ -67,17 +80,18 @@ const getDropIndex = (e, container) => {
   return index === -1 ? itemEls.length : index
 }
 
-// saved attributes become html props or inline styles
+// saved attributes become html props or tailwind classes
 const elementProps = (item, className) => {
-  const { class: userClass = '', disabled, ...attributes } = item.attributes ?? {}
+  const { disabled, ...attributes } = item.attributes ?? {}
   const htmlNames = ['id', 'src', 'alt', 'type', 'placeholder', 'value', 'name']
-  const props = { style: {}, className: `${className} ${userClass} ${disabled === 'true' ? 'opacity-50' : ''}` }
+  const props = {}
+  const classes = [className, disabled === 'true' ? 'opacity-50' : '']
   for (const [name, value] of Object.entries(attributes)) {
     if (!value) continue
     if (htmlNames.includes(name)) props[name] = value
-    else props.style[toCamelCase(name)] = value
+    else classes.push(value)
   }
-  return props
+  return { ...props, className: classes.join(' ') }
 }
 
 const radioRow = (key, isChecked, onPick, content) => (
@@ -87,9 +101,10 @@ const radioRow = (key, isChecked, onPick, content) => (
   </label>
 )
 
-const unitSelect = (value, onChange, unitList = units) => (
-  <select value={value} onChange={(e) => onChange(e.target.value)} className="outline-none cursor-pointer">
-    {unitList.map(unit => <option key={unit}>{unit}</option>)}
+const stepSelect = (prefix, value, onChange, steps) => (
+  <select value={value} onChange={(e) => onChange(e.target.value)} className="w-full p-2 border border-blue-200 rounded-sm outline-none cursor-pointer">
+    <option value="">none</option>
+    {steps.map(step => <option key={step} value={step}>{prefix}-{step}</option>)}
   </select>
 )
 
@@ -118,9 +133,9 @@ function App() {
   const [dialogValue, setDialogValue] = useState('')
   const [isAdvanced, setIsAdvanced] = useState(false)
   const [isAllSides, setIsAllSides] = useState(true)
-  const [sidesDraft, setSidesDraft] = useState({ top: emptySide, right: emptySide, bottom: emptySide, left: emptySide })
-  const [numberDraft, setNumberDraft] = useState(emptySide)
-  const [percentDraft, setPercentDraft] = useState('')
+  const [sidesDraft, setSidesDraft] = useState(emptySides)
+  const [scaleDraft, setScaleDraft] = useState('')
+  const [fractionDraft, setFractionDraft] = useState('')
   const [customDraft, setCustomDraft] = useState('')
 
   const allItems = flattenItems(droppedItems)
@@ -130,12 +145,13 @@ function App() {
   const isDraggingDropped = drag && drag.index !== null
 
   const savedValue = selectedItem?.attributes?.[dialogAttr?.label] ?? ''
-  const isTextOnly = dialogAttr && !dialogAttr.sides && !dialogAttr.options && !dialogAttr.number
-  const isUncoveredValue = savedValue && !dialogAttr.more?.includes(savedValue) && !globalValues.includes(savedValue) && !isCommonValue(dialogAttr, savedValue)
+  const prefix = dialogAttr?.prefix
+  const isTextOnly = dialogAttr && !dialogAttr.sides && !dialogAttr.options && !dialogAttr.scale && !dialogAttr.fraction
+  const isUncoveredValue = savedValue && !dialogAttr.more?.includes(savedValue) && !isCommonValue(dialogAttr, savedValue)
   const keywordValues = [...(dialogAttr?.options ?? []), ...(isAdvanced ? dialogAttr?.more ?? [] : []), ...(isUncoveredValue ? [savedValue] : [])]
-  const sidesText = toSidesText(sidesDraft)
-  const numberText = numberDraft.amount + numberDraft.unit
-  const percentText = percentDraft + '%'
+  const sidesText = toSidesText(prefix, sidesDraft)
+  const scaleText = scaleDraft && `${prefix}-${scaleDraft}`
+  const fractionText = fractionDraft && `${prefix}-${fractionDraft}`
 
   const selectItem = id => {
     setSelectedId(id)
@@ -167,16 +183,14 @@ function App() {
 
   const openDialog = (attr) => {
     const value = selectedItem.attributes?.[attr.label] ?? ''
-    const isPercent = isNumberText(value) && value.endsWith('%')
-    const sideParts = attr.sides && isSidesText(value) ? value.split(' ') : []
-    const [top = '', right = top, bottom = top, left = right] = sideParts
+    const sides = (attr.sides && parseSides(attr.prefix, value)) || emptySides
     setDialogAttr(attr)
     setDialogValue(value)
     setIsAdvanced(value !== '' && !isCommonValue(attr, value))
-    setIsAllSides(top === right && top === bottom && top === left)
-    setSidesDraft({ top: toAmount(top), right: toAmount(right), bottom: toAmount(bottom), left: toAmount(left) })
-    setNumberDraft(isNumberText(value) && !isPercent ? toAmount(value) : emptySide)
-    setPercentDraft(isPercent ? value.slice(0, -1) : '')
+    setIsAllSides(new Set(Object.values(sides)).size === 1)
+    setSidesDraft(sides)
+    setScaleDraft(attr.scale ? stepOf(attr.prefix, value, spacingScale) : '')
+    setFractionDraft(attr.fraction ? stepOf(attr.prefix, value, fractions) : '')
     setCustomDraft('')
   }
 
@@ -185,17 +199,10 @@ function App() {
     setDialogAttr(null)
   }
 
-  const setSide = (side, change) => {
-    const nextSide = { ...sidesDraft[isAllSides ? 'top' : side], ...change }
-    const nextDraft = isAllSides ? { top: nextSide, right: nextSide, bottom: nextSide, left: nextSide } : { ...sidesDraft, [side]: nextSide }
+  const setSide = (side, step) => {
+    const nextDraft = isAllSides ? { top: step, right: step, bottom: step, left: step } : { ...sidesDraft, [side]: step }
     setSidesDraft(nextDraft)
-    setDialogValue(toSidesText(nextDraft))
-  }
-
-  const setNumber = (change) => {
-    const nextNumber = { ...numberDraft, ...change }
-    setNumberDraft(nextNumber)
-    setDialogValue(nextNumber.amount ? nextNumber.amount + nextNumber.unit : '')
+    setDialogValue(toSidesText(prefix, nextDraft))
   }
 
   const renderShadow = (parentId, index, isRow) => {
@@ -208,8 +215,9 @@ function App() {
 
   const renderElement = (item, parentId, index) => {
     const tag = getTag(item)
-    const direction = item.attributes?.['flex-direction'] || (item.label === 'div (row)' ? 'row' : 'column')
-    const isRow = direction.startsWith('row')
+    const isFlex = (item.attributes?.display ?? '').includes('flex')
+    const isRow = isFlex && !(item.attributes?.['flex-direction'] ?? '').includes('col')
+    const isDropParent = dropTarget?.parentId === item.id
     // inside a selected div drag the whole div instead
     const isInsideSelected = selectedItem && containsItem(selectedItem, item.id)
     const stateClass = `cursor-grab active:cursor-grabbing ${selectedId === item.id ? 'ring-2 ring-yellow-300' : ''} ${drag?.item.id === item.id ? 'opacity-40' : ''}`
@@ -228,19 +236,20 @@ function App() {
       }
     })
 
-    if (tag === 'button') return <button {...props('w-full p-2 bg-blue-500 text-white rounded-sm')}>button</button>
-    if (tag === 'text') return <p {...props('p-1 text-blue-900')}>text</p>
-    if (tag === 'input') return <input readOnly placeholder="input" {...props('w-full p-2 border border-blue-200 rounded-sm bg-white')} />
-    if (tag === 'image' && item.attributes?.src) return <img {...props('w-full h-20 object-cover rounded-sm')} />
+    // only classes that no attribute controls go here
+    if (tag === 'button') return <button {...props('rounded-sm')}>button</button>
+    if (tag === 'text') return <p {...props('')}>text</p>
+    if (tag === 'input') return <input readOnly placeholder="input" {...props('border-blue-200 rounded-sm')} />
+    if (tag === 'image' && item.attributes?.src) return <img {...props('rounded-sm')} />
     if (tag === 'image') return (
-      <div {...props('w-full h-20 bg-blue-100 rounded-sm flex items-center justify-center text-blue-400')}>
+      <div {...props('bg-blue-100 rounded-sm flex items-center justify-center text-blue-400')}>
         <span className="material-symbols-outlined text-2xl pointer-events-none">image</span>
       </div>
     )
 
     return (
       <div
-        {...props(`p-2 border border-dashed border-blue-300 rounded-sm min-h-12 flex ${isRow ? 'flex-row' : 'flex-col'} gap-2 ${dropTarget?.parentId === item.id ? 'bg-blue-100/40 border-blue-500' : ''}`)}
+        {...props(`min-h-12 rounded-sm outline outline-dashed ${isDropParent ? 'outline-blue-500 bg-blue-100/40' : 'outline-blue-300'}`)}
         onDragOver={(e) => {
           // a div cannot go inside itself so let its parent handle it
           const isInsideDragged = drag && (drag.item.id === item.id || containsItem(drag.item, item.id))
@@ -474,18 +483,12 @@ function App() {
               {dialogAttr.sides && group('sides', true, <>
                 {radioRow('sides', Boolean(sidesText) && dialogValue === sidesText, () => setDialogValue(sidesText),
                   <div className={`flex-1 grid gap-2 ${isAllSides ? 'grid-cols-1' : 'grid-cols-2'}`}>
-                    {(isAllSides ? ['all sides'] : ['left', 'right', 'top', 'bottom']).map(side => {
-                      const sideValue = sidesDraft[isAllSides ? 'top' : side]
-                      return (
-                        <div key={side} className="flex flex-col gap-1">
-                          {side}
-                          <div className={inputBox}>
-                            <input value={sideValue.amount} onChange={(e) => setSide(side, { amount: e.target.value })} placeholder="0" className="w-full min-w-0 outline-none" />
-                            {unitSelect(sideValue.unit, unit => setSide(side, { unit }))}
-                          </div>
-                        </div>
-                      )
-                    })}
+                    {(isAllSides ? ['all sides'] : ['left', 'right', 'top', 'bottom']).map(side =>
+                      <div key={side} className="flex flex-col gap-1">
+                        {side}
+                        {stepSelect(isAllSides ? prefix : prefix + sideLetters[side], sidesDraft[isAllSides ? 'top' : side], step => setSide(side, step), spacingScale)}
+                      </div>
+                    )}
                   </div>
                 )}
                 <label className="flex items-center gap-2 p-1 cursor-pointer">
@@ -494,34 +497,22 @@ function App() {
                 </label>
               </>)}
 
-              {dialogAttr.number && group('number', true,
-                radioRow('number', Boolean(numberDraft.amount) && dialogValue === numberText, () => setDialogValue(numberDraft.amount ? numberText : ''),
-                  <div className={`flex-1 ${inputBox}`}>
-                    <input value={numberDraft.amount} onChange={(e) => setNumber({ amount: e.target.value })} placeholder="0" className="w-full min-w-0 outline-none" />
-                    {unitSelect(numberDraft.unit, unit => setNumber({ unit }), units.filter(unit => unit !== '%'))}
-                  </div>
+              {dialogAttr.scale && group('spacing', true,
+                radioRow('spacing', Boolean(scaleText) && dialogValue === scaleText, () => setDialogValue(scaleText),
+                  stepSelect(prefix, scaleDraft, step => {
+                    setScaleDraft(step)
+                    setDialogValue(step && `${prefix}-${step}`)
+                  }, spacingScale)
                 )
               )}
 
-              {dialogAttr.number && group('percentage', true,
-                radioRow('percentage', Boolean(percentDraft) && dialogValue === percentText, () => setDialogValue(percentDraft ? percentText : ''),
-                  <div className={`flex-1 ${inputBox}`}>
-                    <input
-                      value={percentDraft}
-                      onChange={(e) => {
-                        setPercentDraft(e.target.value)
-                        setDialogValue(e.target.value ? e.target.value + '%' : '')
-                      }}
-                      placeholder="0"
-                      className="w-full min-w-0 outline-none"
-                    />
-                    %
-                  </div>
+              {dialogAttr.fraction && group('fraction', true,
+                radioRow('fraction', Boolean(fractionText) && dialogValue === fractionText, () => setDialogValue(fractionText),
+                  stepSelect(prefix, fractionDraft, step => {
+                    setFractionDraft(step)
+                    setDialogValue(step && `${prefix}-${step}`)
+                  }, fractions)
                 )
-              )}
-
-              {isAdvanced && group('global', globalValues.includes(savedValue),
-                globalValues.map(option => radioRow(option, dialogValue === option, () => setDialogValue(option), option))
               )}
 
               {keywordValues.length > 0 && group('keyword', true,
@@ -536,7 +527,7 @@ function App() {
                       setCustomDraft(e.target.value)
                       setDialogValue(e.target.value)
                     }}
-                    placeholder="enter custom value"
+                    placeholder="enter custom class"
                     className="flex-1 min-w-0 p-2 border border-blue-200 rounded-sm outline-none focus:border-blue-500"
                   />
                 )
